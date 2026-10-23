@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * Every test starts from and returns to the same database state: all
  * application rows are removed and their identity sequences are reset, leaving
- * only the reference data Flyway seeds (roles and game modes). Tests therefore
+ * only test-owned reference data (roles and game modes). Tests therefore
  * do not depend on each other and may run in any order.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -95,6 +95,9 @@ abstract class AbstractIT {
     @AfterEach
     void resetDatabase() {
         jdbc.execute(RESET_STATEMENT);
+        jdbc.execute("INSERT INTO roles (role) VALUES ('USER'), ('ADMIN') ON CONFLICT DO NOTHING");
+        jdbc.execute("INSERT INTO gametypes (gametype) VALUES "
+                + "('501'), ('301'), ('Cricket'), ('Killer'), ('Around the Clock') ON CONFLICT DO NOTHING");
     }
 
     protected TestRestTemplate rest() {

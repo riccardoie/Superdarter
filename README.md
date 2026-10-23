@@ -31,6 +31,23 @@ docker compose --profile dev up --build
 
 Open http://localhost:5173. The frontend proxies API calls to the backend at http://localhost:8080. Stop the stack with `Ctrl+C`; add `-v` to `docker compose down` if you also want to remove the local database volume.
 
+### Reset the Local Database
+
+To permanently delete local database data and recreate the schema:
+
+```bash
+docker compose --profile dev down -v
+docker compose --profile dev up --build
+```
+
+This also removes the Maven cache volume. Flyway creates the schema from the single
+`V1__init_schema.sql` migration without inserting any data. The `USER` role must be
+added before registration works, and game types must be added before creating games.
+
+This consolidated baseline replaces the previous V1–V11 migrations. Existing
+databases must be reset or migrated using a separately planned baseline strategy;
+do not deploy it unchanged against an existing database's Flyway history.
+
 ## Tests
 
 Run the backend unit tests from the repository root:
@@ -61,7 +78,7 @@ npm run lint
 
 - **Frontend:** React 19 and Vite provide the single-page application in `frontend/`. React Router protects session, game, and profile routes; the client stores the JWT and calls the REST API.
 - **Backend:** Java 25, Spring Boot, Spring Security, and JPA implement authentication plus session, game, game-mode, and player-statistics APIs in `src/main/java/`.
-- **Database:** PostgreSQL 16 stores users, sessions, games, game modes, and statistics. Flyway migrations in `src/main/resources/db/migration/` create and seed the schema on startup.
+- **Database:** PostgreSQL 16 stores users, sessions, games, game modes, and statistics. The Flyway migration in `src/main/resources/db/migration/` creates the schema on startup without seed data.
 - **Local deployment:** Docker Compose starts PostgreSQL, the Spring Boot development server, and the Vite development server. The production profile (`docker compose --profile prod up --build`) instead serves the built frontend through Nginx.
 - **Cloud deployment:** GitHub Actions deploys the frontend to Azure Static Web Apps and the backend JAR to Azure App Service. The production frontend is configured to call `https://backend-superdarter-d4d6d7cbefhccpd2.germanywestcentral-01.azurewebsites.net`.
 
@@ -87,6 +104,6 @@ The team mapped the five required placeholders to the application domain as foll
 ```text
 frontend/                         React and Vite application
 src/main/java/lux/dartgame/       Spring Boot API
-src/main/resources/db/migration/  Flyway schema and seed migrations
+src/main/resources/db/migration/  Flyway schema migration
 .github/workflows/                Azure deployment workflows
 ```
