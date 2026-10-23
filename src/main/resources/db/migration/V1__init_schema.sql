@@ -1,12 +1,4 @@
-DROP TABLE IF EXISTS session_mm_users;
-DROP TABLE IF EXISTS game_mm_gametypes;
-DROP TABLE IF EXISTS gamestats;
-DROP TABLE IF EXISTS playerstats;
-DROP TABLE IF EXISTS games;
-DROP TABLE IF EXISTS sessions;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS roles;
-DROP TABLE IF EXISTS gametypes;
+-- Consolidated schema baseline for a new, empty database. No seed data.
 
 CREATE TABLE roles (
     role_id BIGSERIAL PRIMARY KEY,
@@ -17,6 +9,7 @@ CREATE TABLE users (
     user_id BIGSERIAL PRIMARY KEY,
     user_name VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
     role_id BIGINT NOT NULL REFERENCES roles(role_id)
 );
 
@@ -28,6 +21,7 @@ CREATE TABLE gametypes (
 CREATE TABLE sessions (
     session_id BIGSERIAL PRIMARY KEY,
     is_active BOOLEAN NOT NULL,
+    played_at TIMESTAMP,
     owner_id BIGINT NOT NULL REFERENCES users(user_id)
 );
 
@@ -35,13 +29,10 @@ CREATE TABLE games (
     game_id BIGSERIAL PRIMARY KEY,
     played_at TIMESTAMP,
     session_id BIGINT NOT NULL REFERENCES sessions(session_id),
-    winner_id BIGINT REFERENCES users(user_id)
-);
-
-CREATE TABLE game_mm_gametypes (
-    game_id BIGINT NOT NULL REFERENCES games(game_id),
-    gametype_id BIGINT NOT NULL REFERENCES gametypes(gametype_id),
-    PRIMARY KEY (game_id, gametype_id)
+    winner_id BIGINT REFERENCES users(user_id),
+    gametype_id BIGINT NOT NULL,
+    nr_of_players INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT fk_games_gametype FOREIGN KEY (gametype_id) REFERENCES gametypes(gametype_id)
 );
 
 CREATE TABLE session_mm_users (
@@ -65,12 +56,15 @@ CREATE TABLE playerstats (
 
 CREATE TABLE gamestats (
     user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    game_id BIGINT NOT NULL REFERENCES games(game_id),
-    avg_points REAL,
+    game_id BIGINT NOT NULL REFERENCES games(game_id) ON DELETE CASCADE,
+    points INTEGER NOT NULL DEFAULT 0,
+    turn INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
     triple20s INTEGER,
     bullseyes INTEGER,
     highest_score INTEGER,
     checkout_accuracy REAL NOT NULL,
     highest_checkout INTEGER NOT NULL,
-    PRIMARY KEY (user_id, game_id)
+    PRIMARY KEY (user_id, game_id),
+    CONSTRAINT gamestats_position_unique UNIQUE (game_id, position)
 );
