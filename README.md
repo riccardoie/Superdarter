@@ -40,9 +40,10 @@ docker compose --profile dev down -v
 docker compose --profile dev up --build
 ```
 
-This also removes the Maven cache volume. Flyway creates the schema from the single
-`V1__init_schema.sql` migration without inserting any data. The `USER` role must be
-added before registration works, and game types must be added before creating games.
+This also removes the Maven cache volume. Flyway creates the schema from
+`V1__init_schema.sql`, then adds the 301 and 501 game types via
+`V2__add_301_and_501_gametypes.sql`. No demo data is inserted. The `USER` role must
+be added before registration works.
 
 This consolidated baseline replaces the previous V1–V11 migrations. Existing
 databases must be reset or migrated using a separately planned baseline strategy;
@@ -78,7 +79,7 @@ npm run lint
 
 - **Frontend:** React 19 and Vite provide the single-page application in `frontend/`. React Router protects session, game, and profile routes; the client stores the JWT and calls the REST API.
 - **Backend:** Java 25, Spring Boot, Spring Security, and JPA implement authentication plus session, game, game-mode, and player-statistics APIs in `src/main/java/`.
-- **Database:** PostgreSQL 16 stores users, sessions, games, game modes, and statistics. The Flyway migration in `src/main/resources/db/migration/` creates the schema on startup without seed data.
+- **Database:** PostgreSQL 16 stores users, sessions, games, game modes, and statistics. Flyway migrations in `src/main/resources/db/migration/` create the schema and add the 301 and 501 game types on startup without demo data.
 - **Local deployment:** Docker Compose starts PostgreSQL, the Spring Boot development server, and the Vite development server. The production profile (`docker compose --profile prod up --build`) instead serves the built frontend through Nginx.
 - **Cloud deployment:** GitHub Actions deploys the frontend to Azure Static Web Apps and the backend JAR to Azure App Service. The production frontend is configured to call `https://backend-superdarter-d4d6d7cbefhccpd2.germanywestcentral-01.azurewebsites.net`.
 
@@ -104,6 +105,6 @@ The team mapped the five required placeholders to the application domain as foll
 ```text
 frontend/                         React and Vite application
 src/main/java/lux/dartgame/       Spring Boot API
-src/main/resources/db/migration/  Flyway schema migration
+src/main/resources/db/migration/  Flyway schema and game-type migrations
 .github/workflows/                Azure deployment workflows
 ```
