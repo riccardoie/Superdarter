@@ -3,9 +3,7 @@ package lux.dartgame.service;
 import lombok.extern.slf4j.Slf4j;
 import lux.dartgame.dto.PlayerStatResponse;
 import lux.dartgame.dto.UserRequest;
-import lux.dartgame.model.PlayerStat;
 import lux.dartgame.repository.PlayerStatRepository;
-import lux.dartgame.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,13 +27,15 @@ public class PlayerStatsService {
         return playerStatRepository.findByPlayerUserNameIn(usernames).stream()
                 .map(stat -> new PlayerStatResponse(stat.getPlayer().getUserName(),
                         stat.getAvgPoints(),
-                        stat.getWonGames(),
-                        stat.getPlayedGames(),
+                        stat.getWonMatches(),
+                        stat.getPlayedMatches(),
                         stat.getTriple20s(),
                         stat.getBullseyes(),
                         stat.getHighestScore(),
                         stat.getHighestCheckout(),
-                        stat.getAvgCheckoutAccuracy()))
+                        stat.getAvgCheckoutAccuracy(),
+                        stat.getWonLegs(),
+                        stat.getPlayedLegs()))
                 .toList();
     }
 }

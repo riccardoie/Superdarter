@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 abstract class AbstractIT {
 
     protected static final String AUTH_URL = "/api/auth";
-    protected static final String SESSION_URL = "/api/session";
+    protected static final String GAMES_URL = "/api/games";
     protected static final String GAMEMODE_URL = "/api/gamemode";
     protected static final String PLAYER_STATS_URL = "/api/playerStats";
 
@@ -52,7 +52,7 @@ abstract class AbstractIT {
      * a test, and the endpoints under test need them to exist.
      */
     private static final String RESET_STATEMENT =
-            "TRUNCATE TABLE gamestats, games, session_mm_users, sessions, "
+            "TRUNCATE TABLE leg_player_stats, legs, match_participants, matches, "
                     + "playerstats, users RESTART IDENTITY CASCADE";
 
     private static final String SECRET_RAW = "lux-integration-test-secret-key-32bytes!";
