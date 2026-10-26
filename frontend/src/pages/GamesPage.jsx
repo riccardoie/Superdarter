@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getAllGamemodes } from '../api';
-import SessionsList from '../components/SessionsList';
-import CreateSession from '../components/CreateSession';
+import GamesList from '../components/GamesList';
+import CreateGame from '../components/CreateGame';
 
-export default function SessionsPage() {
+export default function GamesPage() {
+  const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [availableGamemodes, setAvailableGamemodes] = useState(null);
   const [gamemodeError, setGamemodeError] = useState('');
   const [gamemode, setGamemode] = useState('');
@@ -17,18 +18,18 @@ export default function SessionsPage() {
   }, []);
 
   return (
-    <div className="page sessions-page">
-      <div className="sessions-header">
-        <h1>Sessions</h1>
+    <div className="page games-page">
+      <div className="games-header">
+        <h1>Games</h1>
         <button
           className="btn btn-primary"
           type="button"
           onClick={() => setShowCreate(true)}
         >
-          Create Session
+          Create game
         </button>
       </div>
-      <div className="sessions-filter" aria-label="Show all">
+      <div className="games-filter" aria-label="Filter games">
         {availableGamemodes === null && !gamemodeError && (
           <p className="state-message">Loading gamemodes...</p>
         )}
@@ -50,13 +51,13 @@ export default function SessionsPage() {
           </div>
         )}
       </div>
-      <SessionsList key={refreshKey} gamemode={gamemode} />
+      <GamesList gamemode={gamemode} />
       {showCreate && (
-        <CreateSession
+        <CreateGame
           onClose={() => setShowCreate(false)}
-          onCreated={() => {
-            setRefreshKey((k) => k + 1);
+          onCreated={(game) => {
             setShowCreate(false);
+            navigate(`/games/${game.gameId}`);
           }}
         />
       )}

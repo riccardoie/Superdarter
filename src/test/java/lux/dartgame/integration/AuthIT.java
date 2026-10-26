@@ -4,11 +4,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import lux.dartgame.dto.CreateSessionRequest;
-import lux.dartgame.dto.GameRequest;
+import lux.dartgame.dto.CreateGameRequest;
 import lux.dartgame.dto.LoginRequest;
 import lux.dartgame.dto.RegisterRequest;
-import lux.dartgame.dto.SessionResponse;
+import lux.dartgame.dto.MatchResponse;
 import lux.dartgame.dto.TokenResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
@@ -59,27 +58,24 @@ class AuthIT extends AbstractIT {
     }
 
     @Test
-    void login_afterRegister_returnsTokenThatReadsBackTheSessionsInTheDatabase() {
+    void login_afterRegister_returnsTokenThatReadsBackGames() {
         String registrationToken = register(ALICE);
 
-        // Create a session with the token from registration...
-        ResponseEntity<SessionResponse> created = rest().postForEntity(
-                SESSION_URL,
-                authed(registrationToken, new CreateSessionRequest(
-                        Set.of(), List.of(new GameRequest(TARGET_301)))),
-                SessionResponse.class);
+        ResponseEntity<MatchResponse> created = rest().postForEntity(
+                GAMES_URL, authed(registrationToken, new CreateGameRequest(TARGET_301, List.of())),
+                MatchResponse.class);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
-        // ...then reach the same session with the token from a fresh login.
+        // Read the game using a fresh login, without any browser cache.
         String loginToken = login(ALICE, PASSWORD);
         ResponseEntity<List> sessions = rest().exchange(
-                SESSION_URL + "?username=" + ALICE, HttpMethod.GET,
+                GAMES_URL, HttpMethod.GET,
                 new HttpEntity<>(bearer(loginToken)), List.class);
 
         assertThat(sessions.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(sessions.getBody()).hasSize(1);
         assertThat(sessions.getBody().get(0).toString())
-                .contains("id=" + created.getBody().id());
+                .contains("gameId=" + created.getBody().gameId());
     }
 
     @Test
