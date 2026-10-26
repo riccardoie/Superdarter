@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getGameState, playRound } from '../api';
 import DartboardInput from '../components/DartboardInput';
-import { canSubmitRound, serializeRound } from '../dartRound';
+import { canSubmitRound, serializeRound, undoLastDart } from '../dartRound';
 import GameStatsTable from '../components/GameStatsTable';
+import CheckoutSuggestion from '../components/CheckoutSuggestion';
 
 // Array of all numbers from 1-20+25
 const DART_VALUES = Array.from({ length: 20 }, (_, i) => i + 1).concat(25);
@@ -23,7 +24,7 @@ export default function GamePage() {
   const [actionError, setActionError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [slots, setSlots] = useState(emptySlots);
-  const [inputMode, setInputMode] = useState('select');
+  const [inputMode, setInputMode] = useState('board');
   const [activeDart, setActiveDart] = useState(0);
 
   useEffect(() => {
@@ -93,6 +94,14 @@ export default function GamePage() {
     setActiveDart((activeDart + 1) % slots.length);
   }
 
+  function handleUndo() {
+    if (submitting) return;
+    const undone = undoLastDart(slots);
+    setSlots(undone.slots);
+    setActiveDart(undone.activeDart);
+    setActionError('');
+  }
+
   async function handleSubmit() {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
@@ -155,11 +164,17 @@ export default function GamePage() {
                 }`}
               >
                 <span>{player.username}</span>
-                <span>
+                <span className="game-scoreboard-stats">
                   {player.points}{' '}
                   <span className="game-scoreboard-turns">
                     Turns: {player.turns}
                   </span>
+                  {[301, 501].includes(game.startingPoints) && (
+                    <CheckoutSuggestion
+                      points={player.points}
+                      slots={player.username === activePlayer ? slots : []}
+                    />
+                  )}
                 </span>
               </div>
             ))}
@@ -186,11 +201,6 @@ export default function GamePage() {
       ) : (
         <div className="game-round-panel">
           <div className="game-turn-banner">Next up: {activePlayer}</div>
-          <p className="game-shared-hint">
-            Playing on one device — each player enters their throws when it's
-            their turn.
-            {' '}Enter 1–3 darts in order; leave unused darts blank. Finish on a double.
-          </p>
           <div
             className="game-input-mode"
             role="group"
@@ -198,19 +208,19 @@ export default function GamePage() {
           >
             <button
               type="button"
-              className={inputMode === 'select' ? 'game-input-mode-active' : ''}
-              onClick={() => setInputMode('select')}
-              disabled={submitting}
-            >
-              Select
-            </button>
-            <button
-              type="button"
               className={inputMode === 'board' ? 'game-input-mode-active' : ''}
               onClick={() => setInputMode('board')}
               disabled={submitting}
             >
               Dartboard
+            </button>
+            <button
+              type="button"
+              className={inputMode === 'select' ? 'game-input-mode-active' : ''}
+              onClick={() => setInputMode('select')}
+              disabled={submitting}
+            >
+              Select
             </button>
           </div>
           {inputMode === 'select' ? (
@@ -277,26 +287,34 @@ export default function GamePage() {
                 ))}
               </div>
               <DartboardInput onHit={recordBoardHit} disabled={submitting} />
-              <button
-                type="button"
-                className="game-board-miss"
-                onClick={() => recordBoardHit(0, 1)}
-                disabled={submitting}
-              >
-                Record miss for D{activeDart + 1}
-              </button>
             </div>
           )}
           <div className="game-round-total">Round total: {roundTotal}</div>
           {actionError && <p className="error-message">{actionError}</p>}
-          <button
-            type="button"
-            className="btn game-register"
-            onClick={handleSubmit}
-            disabled={!canSubmit || submitting}
-          >
-            {submitting ? 'Registering...' : 'Register Round'}
-          </button>
+          <div className="game-round-actions">
+            <button
+              type="button"
+              className="btn game-undo"
+              onClick={handleUndo}
+              disabled={submitting || slots.every((slot) => slot.value === '')}
+            >
+              Undo last dart
+            </button>
+            <button
+              type="button"
+              className="btn game-register"
+              onClick={handleSubmit}
+              disabled={!canSubmit || submitting}
+            >
+              {submitting ? 'Registering...' : 'Register Round'}
+            </button>
+          </div>
+          <p className="game-shared-hint">
+            Playing on one device — each player enters their throws when it's
+            their turn.
+            {' '}Enter 1–3 darts in order; leave unused darts blank. Finish on a double.
+            {' '}Register an empty round if all darts missed.
+          </p>
         </div>
       )}
     </div>

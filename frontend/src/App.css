@@ -830,6 +830,18 @@
   font-size: 0.85rem;
 }
 
+.game-round-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.game-round-actions > button {
+  flex: 1;
+}
+
 .game-round-panel {
   width: min(560px, 100%);
   display: flex;
@@ -848,6 +860,23 @@
   color: var(--color-on-primary);
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+.game-checkout-suggestion {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  background: rgba(128, 128, 128, 0.1);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.game-scoreboard-stats {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .game-shared-hint {

@@ -7,6 +7,7 @@ import { createServer } from 'vite';
 let server;
 let api;
 let GameStatsTable;
+let CheckoutSuggestion;
 const originalFetch = globalThis.fetch;
 const originalLocalStorage = globalThis.localStorage;
 
@@ -14,6 +15,7 @@ before(async () => {
   server = await createServer({ server: { middlewareMode: true } });
   api = await server.ssrLoadModule('/src/api.js');
   ({ default: GameStatsTable } = await server.ssrLoadModule('/src/components/GameStatsTable.jsx'));
+  ({ default: CheckoutSuggestion } = await server.ssrLoadModule('/src/components/CheckoutSuggestion.jsx'));
   globalThis.localStorage = { getItem: () => null };
 });
 
@@ -70,4 +72,18 @@ test('average is zero before the first turn', () => {
   }));
   assert.match(html, /data-label="Average">0<\/td>/);
   assert.doesNotMatch(html, /NaN|Infinity/);
+});
+
+test('checkout suggestion renders compact routes and hides unavailable checkouts', () => {
+  const render = (points, slots) => renderToStaticMarkup(createElement(CheckoutSuggestion, { points, slots }));
+  const empty = { value: '', multiplier: 1 };
+  assert.match(render(60, [empty, empty, empty]), />20 → d20<\/span>/);
+  assert.match(render(100, [empty, empty, empty]), />t20 → d20<\/span>/);
+  assert.match(render(50, [empty, empty, empty]), />d25<\/span>/);
+  assert.match(render(60, [empty, empty, empty]), /role="status"/);
+  assert.equal(render(169, [empty, empty, empty]), '');
+  assert.equal(render(40, [{ value: 20, multiplier: 2 }, empty, empty]), '');
+  assert.equal(render(40, [{ value: 20, multiplier: 3 }, empty, empty]), '');
+  assert.equal(render(301, Array(3).fill({ value: 20, multiplier: 3 })), '');
+  assert.equal(render(undefined, [empty, empty, empty]), '');
 });
