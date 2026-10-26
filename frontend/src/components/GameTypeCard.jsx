@@ -20,17 +20,13 @@ export default function GameTypeCard({
     }
   };
 
-  const label = `${gamemode}${count > 1 ? ` x${count}` : ''}`;
-
   return (
     <div className="card game-type-card">
-      <span className="game-type-card-label">{label}</span>
+      <div className="game-type-card-info">
+        <span className="game-type-card-label">{gamemode}</span>
+        <span className="game-type-card-count">{count} game{count === 1 ? '' : 's'} scheduled</span>
+      </div>
       <div className="game-type-card-actions">
-        {deletable && (
-          <button type="button" className="btn btn-danger" onClick={onDelete}>
-            Remove
-          </button>
-        )}
         {finishedMessage ? (
           <span className="game-type-card-finished">{finishedMessage}</span>
         ) : (
@@ -44,6 +40,16 @@ export default function GameTypeCard({
               {loading ? 'Starting…' : 'Start'}
             </button>
           )
+        )}
+        {deletable && (
+          <button
+            type="button"
+            className="game-type-card-remove"
+            aria-label={`Remove an unstarted ${gamemode} game`}
+            onClick={onDelete}
+          >
+            Remove
+          </button>
         )}
       </div>
     </div>
