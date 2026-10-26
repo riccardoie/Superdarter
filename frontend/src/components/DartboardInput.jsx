@@ -47,6 +47,10 @@ function Segment({ number, index, onHit }) {
     >
       <path
         className={dark ? 'dartboard-single-dark' : 'dartboard-single-light'}
+        d={arcPath(8, 31, startAngle, endAngle)}
+      />
+      <path
+        className={dark ? 'dartboard-single-dark' : 'dartboard-single-light'}
         d={arcPath(39, 72, startAngle, endAngle)}
       />
       <path
