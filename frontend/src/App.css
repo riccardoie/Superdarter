@@ -629,6 +629,98 @@
 }
 
 /* ===== Game page ===== */
+.game-format-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.game-format-picker input {
+  width: 3.5rem;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.game-format-picker input::-webkit-inner-spin-button,
+.game-format-picker input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.leg-target-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.leg-target-stepper button {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.leg-target-stepper button:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+}
+
+.leg-target-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.leg-target-stepper button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.match-progress {
+  width: min(560px, 100%);
+  margin: var(--space-4) auto var(--space-5);
+  text-align: center;
+}
+
+.match-progress h2 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+.match-leg-history {
+  width: min(560px, 100%);
+  margin: var(--space-5) auto 0;
+  text-align: left;
+}
+
+.match-leg-history > .btn {
+  display: block;
+  margin-inline: auto;
+}
+
+.game-scoreboard-leg-wins {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-leg-history summary {
+  padding: var(--space-2) 0;
+  cursor: pointer;
+}
+
+.game-leg-notice {
+  text-align: center;
+  color: var(--color-success);
+  margin-block: var(--space-3);
+}
+
 .game-page-header {
   display: flex;
   flex-wrap: wrap;
@@ -666,7 +758,7 @@
 }
 
 .game-page-in-progress .game-scoreboard {
-  width: min(560px, 100%);
+  width: min(760px, 100%);
 }
 
 .game-scoreboard {
@@ -678,11 +770,51 @@
 }
 
 .game-scoreboard-row {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5rem 4rem minmax(0, 1.7fr) 3.5rem;
+  grid-template-areas: 'name legs turns checkout points';
+  align-items: center;
+  column-gap: clamp(0.5rem, 2vw, 1.5rem);
+  padding: var(--space-4) var(--space-5);
   background: var(--color-surface);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-scoreboard-name {
+  grid-area: name;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.game-scoreboard-leg-wins {
+  grid-area: legs;
+  white-space: nowrap;
+}
+
+.game-scoreboard-turns {
+  grid-area: turns;
+  white-space: nowrap;
+}
+
+.game-scoreboard-checkout {
+  grid-area: checkout;
+  min-width: 0;
+  text-align: center;
+}
+
+.game-scoreboard-checkout .game-checkout-suggestion {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.game-scoreboard-points {
+  grid-area: points;
+  text-align: right;
+  font-size: 1.4rem;
+  font-weight: 700;
 }
 
 .game-scoreboard-row + .game-scoreboard-row {
@@ -741,11 +873,27 @@
 }
 
 .game-scoreboard-stats {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  display: contents;
+}
+
+@media (max-width: 600px) {
+  .game-scoreboard-row {
+    grid-template-columns: 1fr 1fr minmax(0, 1.5fr) 3rem;
+    grid-template-areas: 'name name name name' 'legs turns checkout points';
+    gap: var(--space-3) var(--space-2);
+    padding: var(--space-3);
+  }
+
+  .game-scoreboard-checkout {
+    min-height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .game-scoreboard-checkout .game-checkout-suggestion {
+    font-size: 0.8rem;
+  }
 }
 
 .game-shared-hint {

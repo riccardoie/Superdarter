@@ -5,9 +5,21 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import lux.dartgame.constants.Constants;
 
 public record CreateGameRequest(@NotBlank String gametype,
                                @Size(max = Constants.MAX_NR_OF_PLAYERS)
-                               List<@NotNull @Valid UserRequest> players) {
+                               List<@NotNull @Valid UserRequest> players,
+                               @Min(1) @Max(Constants.MAX_LEGS_TO_WIN) Integer legsToWin) {
+    public CreateGameRequest {
+        if (legsToWin == null) {
+            legsToWin = 1;
+        }
+    }
+
+    public CreateGameRequest(final String gametypeParam, final List<UserRequest> playersParam) {
+        this(gametypeParam, playersParam, 1);
+    }
 }

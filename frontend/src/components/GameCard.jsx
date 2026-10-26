@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { matchFormatLabel } from '../matchFormat';
 
 const STATUS_LABELS = {
   PENDING: 'Ready to play', IN_PROGRESS: 'In progress', COMPLETED: 'Completed', ABANDONED: 'Abandoned',
@@ -13,8 +14,13 @@ export default function GameCard({ game }) {
         </time>
         <span className="match-card-badge">{STATUS_LABELS[game.status]}</span>
       </div>
-      <p className="match-card-gametype">{game.gametype} <small>· Single leg</small></p>
+      <p className="match-card-gametype">{game.gametype} <small>· {matchFormatLabel(game.legsToWin)}</small></p>
       <p className="match-card-players">{game.players.map((player) => player.username).join(' · ')}</p>
+      {game.legsToWin > 1 && (
+        <p className="match-card-players">
+          {game.players.map((player) => `${player.username}: ${player.legsWon}`).join(' · ')}
+        </p>
+      )}
       {game.winner && <p className="match-card-result">Winner: {game.winner}</p>}
     </Link>
   );
