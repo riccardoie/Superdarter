@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -366,12 +367,13 @@ class GameServiceTest {
                 .thenReturn(Optional.of(aliceStat));
 
         GameResponse response = gameService.playRound(
-                new PlayedRoundRequest("alice", "20 3", GAME_ID), "alice", SESSION_ID);
+                new PlayedRoundRequest("alice", "20 1 20 2", GAME_ID), "alice", SESSION_ID);
 
         assertThat(response.turn()).isEqualTo("alice");
         assertThat(response.isFinished()).isTrue();
         assertThat(game.getWinner()).isEqualTo(alice);
         assertThat(aliceStat.getPoints()).isZero();
+        assertThat(aliceStat.getHighestCheckout()).isEqualTo(60);
         assertThat(alice.getStats().getAvgPoints()).isEqualTo(301f / 5);
         assertThat(bob.getStats().getAvgPoints()).isZero();
     }
@@ -447,5 +449,71 @@ class GameServiceTest {
 
         verify(gameRepository).delete(unstarted);
         assertThat(session.getGames()).containsExactly(started);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "40, '20 2', 0, true, 0, 0, 40",
+        "50, '25 2', 0, true, 0, 1, 50",
+        "40, '0 1 20 2', 0, true, 0, 0, 40",
+        "40, '20 2 20 3 25 2', 0, true, 0, 0, 40",
+        "20, '20 1', 20, false, 0, 0, 0",
+        "60, '20 3', 60, false, 1, 0, 0",
+        "25, '25 1', 25, false, 0, 1, 0",
+        "21, '20 1', 21, false, 0, 0, 0",
+        "40, '20 1 19 1', 40, false, 0, 0, 0",
+        "40, '20 1 20 3 25 2', 40, false, 1, 0, 0",
+        "40, '20 1 20 1', 40, false, 0, 0, 0",
+        "100, '20 3 20 2', 0, true, 1, 0, 100",
+        "501, '20 3 20 3 20 3', 321, false, 3, 0, 180",
+        "501, '0 1', 501, false, 0, 0, 0"
+    })
+    void playRound_doubleOutRules(final int points, final String score,
+                                 final int remaining, final boolean won,
+                                 final int triples, final int bullseyes, final int highest) {
+        User alice = user(1L, "alice");
+        Game game = game(GAME_ID, gametype("501"), null);
+        GameStat stat = stat(alice, game, points, 0, 0);
+        Session session = session(SESSION_ID, alice, game);
+        when(userRepository.findByUserName("alice")).thenReturn(Optional.of(alice));
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
+        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(gameStatRepository.findById(new GameStatsId(1L, GAME_ID)))
+                .thenReturn(Optional.of(stat));
+        if (!won) {
+            when(userRepository.getReferenceById(1L)).thenReturn(alice);
+        }
+
+        GameResponse response = gameService.playRound(
+                new PlayedRoundRequest("alice", score, GAME_ID), "alice", SESSION_ID);
+
+        assertThat(response.isFinished()).isEqualTo(won);
+        assertThat(stat.getPoints()).isEqualTo(remaining);
+        assertThat(stat.getTurn()).isEqualTo(1);
+        assertThat(stat.getTriple20s()).isEqualTo(triples);
+        assertThat(stat.getBullseyes()).isEqualTo(bullseyes);
+        assertThat(stat.getHighestScore()).isEqualTo(highest);
+        assertThat(stat.getHighestCheckout()).isEqualTo(won ? points : 0);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"20 3 20 3 20 3 1 1", "-20 2", "20 -2", "0 2",
+            "25 3", "21 1", "20", "abc", "20 2 garbage"})
+    void playRound_invalidDartsDoNotChangeStats(final String score) {
+        User alice = user(1L, "alice");
+        Game game = game(GAME_ID, gametype("301"), null);
+        GameStat stat = stat(alice, game, 301, 0, 0);
+        Session session = session(SESSION_ID, alice, game);
+        when(userRepository.findByUserName("alice")).thenReturn(Optional.of(alice));
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
+        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(gameStatRepository.findById(new GameStatsId(1L, GAME_ID)))
+                .thenReturn(Optional.of(stat));
+
+        assertThatThrownBy(() -> gameService.playRound(
+                new PlayedRoundRequest("alice", score, GAME_ID), "alice", SESSION_ID))
+                .isInstanceOf(InvalidScoreException.class);
+        assertThat(stat.getPoints()).isEqualTo(301);
+        assertThat(stat.getTurn()).isZero();
     }
 }

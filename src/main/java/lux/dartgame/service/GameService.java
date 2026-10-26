@@ -3,8 +3,6 @@ package lux.dartgame.service;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.MatchResult;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -128,61 +126,40 @@ public class GameService {
         );
     }
 
-    // Parses the score string into an array of integers.
-    // Checks if the score string is valid (numbers between 1 and 20 or 25,
-    // multipliers between 1 and 3 - 1 and 2 for bullseye)
+    // Ordered number/multiplier pairs; 0 1 represents a thrown miss.
     private int[] getScoreFromRound(final String score) {
-        List<Integer> results;
+        if (score == null) {
+            throw new InvalidScoreException();
+        }
+        if (score.isBlank()) {
+            return new int[0]; // Legacy clients submit an empty string for an all-miss turn.
+        }
+        String[] tokens = score.trim().split("\\s+");
+        if (tokens.length % 2 != 0 || tokens.length / 2 > Constants.MAX_DARTS_PER_TURN) {
+            throw new InvalidScoreException();
+        }
+        int[] results = new int[tokens.length];
         try {
-             results = Pattern.compile("\\d+")
-                    .matcher(score)
-                    .results()
-                    .map(MatchResult::group)
-                    .map(Integer::parseInt)
-                    .toList();
+            for (int i = 0; i < tokens.length; i++) {
+                results[i] = Integer.parseInt(tokens[i]);
+            }
         } catch (NumberFormatException e) {
             throw new InvalidScoreException();
         }
-
-        if (results.isEmpty()) {
-            return new int[]{0, 0, 0};
-        }
-
-        if (results.size() % 2 != 0) {
-            // e.g. "20 3 5" (odd count of numbers)
-            throw new InvalidScoreException();
-        }
-
-        int totalScore = 0;
-        int tripleTwenties = 0;
-        int bullseyes = 0;
-
-        // Validate the score string
-        for (int i = 0; i < results.size() / 2; i++) {
-            int number = results.get(2 * i);
-            int multiplier = results.get(2 * i + 1);
-
+        for (int i = 0; i < results.length; i += 2) {
+            int number = results[i];
+            int multiplier = results[i + 1];
             boolean isBullseye = number == Constants.BULLSEYE_VALUE;
             boolean isNumber = number >= 1 && number <= Constants.MAX_DART_NUMBER;
-            boolean validMultiplier = isBullseye
+            boolean validMultiplier = (number == 0 && multiplier == 1) || (isBullseye
                     ? (multiplier == 1 || multiplier == 2)   // bullseye is 25x1 or 25x2
-                    : isNumber && (multiplier >= 1 && multiplier <= Constants.MAX_MULTIPLIER);
+                    : isNumber && (multiplier >= 1 && multiplier <= Constants.MAX_MULTIPLIER));
 
             if (!validMultiplier) {
                 throw new InvalidScoreException();
             }
-
-            totalScore += number * multiplier;
-            if (number == Constants.MAX_DART_NUMBER
-                    && multiplier == Constants.MAX_MULTIPLIER) {
-                tripleTwenties++;
-            }
-            if (isBullseye) {
-                bullseyes++;
-            }
         }
-
-        return new int[]{totalScore, tripleTwenties, bullseyes};
+        return results;
     }
 
     @Transactional
@@ -241,29 +218,11 @@ public class GameService {
     private boolean gameLogic(final String gametype,
                               final String score,
                               final GameStat stat) {
-        int[] round = getScoreFromRound(score);
-        int result = round[0];
-
-        if (!allowedScore(result)) {
-            throw new InvalidScoreException();
-        }
-
-        updateGameStats(stat, result, round[1], round[2]);
-
         return switch (gametype) {
-            case Constants.GAMETYPE_301 -> playGame(Constants.TARGET_301, stat, result);
-            case Constants.GAMETYPE_501 -> playGame(Constants.TARGET_501, stat, result);
+            case Constants.GAMETYPE_301, Constants.GAMETYPE_501 ->
+                    playGame(stat, getScoreFromRound(score));
             default -> throw new GameModeNotFoundException(gametype);
         };
-    }
-
-    // Validates if the score is allowed
-    private boolean allowedScore(final int score) {
-        if (score < 0 || score > Constants.MAX_ROUND_SCORE) {
-            throw new InvalidScoreException();
-        }
-
-        return !Constants.isImpossibleScore(score);
     }
 
     private void updateGameStats(final GameStat stat,
@@ -277,25 +236,43 @@ public class GameService {
         if (stat.getHighestScore() < result) {
             stat.setHighestScore(result);
         }
-
-
     }
 
-    private boolean playGame(final int game,
-                             final GameStat stat,
-                             final int result) {
-        log.info("Playing game: {}, current points: {}, result: {}", game,
-                                                                     stat.getPoints(),
-                                                                     result);
-        if (stat.getPoints() - result > 0) {
-            stat.setPoints(stat.getPoints() - result);
-            return false;
-        } else if (stat.getPoints() - result == 0) { // exactly game = win
-            stat.setPoints(0);
-            return true;
+    private boolean playGame(final GameStat stat, final int[] darts) {
+        int startingPoints = stat.getPoints();
+        int remaining = startingPoints;
+        int triples = 0;
+        int bullseyes = 0;
+        boolean won = false;
+        boolean bust = false;
+        for (int i = 0; i < darts.length; i += 2) {
+            int number = darts[i];
+            int multiplier = darts[i + 1];
+            remaining -= number * multiplier;
+            if (number == Constants.MAX_DART_NUMBER && multiplier == Constants.MAX_MULTIPLIER) {
+                triples++;
+            }
+            if (number == Constants.BULLSEYE_VALUE) {
+                bullseyes++;
+            }
+            if (remaining < 0 || remaining == 1 || (remaining == 0 && multiplier != 2)) {
+                bust = true;
+                break;
+            }
+            if (remaining == 0) {
+                won = true;
+                break;
+            }
         }
-        // Player bust
-        return false;
+        int scored = bust ? 0 : startingPoints - remaining;
+        updateGameStats(stat, scored, triples, bullseyes);
+        if (!bust) {
+            stat.setPoints(remaining);
+        }
+        if (won) {
+            stat.setHighestCheckout(Math.max(stat.getHighestCheckout(), scored));
+        }
+        return won;
     }
 
     @Transactional(readOnly = true)
