@@ -281,6 +281,7 @@ public class SessionService {
 
             for (int i = 0; i < n; i++) {
                 GameStat stat = new GameStat();
+                stat.setPoints(Integer.parseInt(gametype.getGametype()));
                 stat.setUser(orderedPlayers.get((i + offset) % n));
                 stat.setGame(game);
                 stat.setPosition(i);

@@ -167,6 +167,7 @@ export async function getGameState({ sessionId, gameId }) {
     return {
       gameId: id,
       gametype: meta.gametype,
+      startingPoints: stats[0]?.startingPoints,
       isFinished: Boolean(meta.isFinished),
       winner: meta.isFinished ? meta.turn : null,
       turn: meta.turn,
@@ -184,6 +185,7 @@ export async function getGameState({ sessionId, gameId }) {
   return {
     gameId: id,
     gametype: finishedGame?.gametype ?? meta.gametype,
+    startingPoints: stats[0]?.startingPoints,
     isFinished: Boolean(finishedGame),
     winner: finishedGame?.winner ?? null,
     turn: finishedGame?.winner ?? turn,

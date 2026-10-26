@@ -7,5 +7,6 @@ public record GameStatResponse(String userName,
                                int triple20s,
                                int highestScore,
                                int highestCheckout,
-                               float checkoutAccuracy) {
+                               float checkoutAccuracy,
+                               int startingPoints) {
 }

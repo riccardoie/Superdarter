@@ -21,17 +21,22 @@ import lux.dartgame.repository.SessionRepository;
 import lux.dartgame.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class GameServiceTest {
@@ -316,13 +321,15 @@ class GameServiceTest {
         assertThat(aliceStat.getTurn()).isZero();
     }
 
-    @Test
-    void playRound_validScore_updatesStatAndPassesTurn() {
+    @ParameterizedTest
+    @ValueSource(strings = {"301", "501"})
+    void playRound_validScore_updatesStatAndPassesTurn(final String gameType) {
         User alice = user(1L, "alice");
         User bob = user(2L, "bob");
-        Game game = game(GAME_ID, gametype("301"), null);
-        GameStat aliceStat = stat(alice, game, 100, 0, 0);
-        stat(bob, game, 50, 0, 1);
+        Game game = game(GAME_ID, gametype(gameType), null);
+        int startingPoints = Integer.parseInt(gameType);
+        GameStat aliceStat = stat(alice, game, startingPoints, 0, 0);
+        stat(bob, game, startingPoints, 0, 1);
         Session session = session(SESSION_ID, alice, game);
 
         when(userRepository.findByUserName("alice")).thenReturn(Optional.of(alice));
@@ -335,11 +342,11 @@ class GameServiceTest {
         GameResponse response = gameService.playRound(
                 new PlayedRoundRequest("alice", "20 3", GAME_ID), "alice", SESSION_ID);
 
-        assertThat(response.gametype()).isEqualTo("301");
+        assertThat(response.gametype()).isEqualTo(gameType);
         assertThat(response.turn()).isEqualTo("bob");
         assertThat(response.gameId()).isEqualTo(GAME_ID);
         assertThat(response.isFinished()).isFalse();
-        assertThat(aliceStat.getPoints()).isEqualTo(160);
+        assertThat(aliceStat.getPoints()).isEqualTo(startingPoints - 60);
         assertThat(aliceStat.getTurn()).isEqualTo(1);
         assertThat(aliceStat.getHighestScore()).isEqualTo(60);
     }
@@ -349,8 +356,8 @@ class GameServiceTest {
         User alice = user(1L, "alice");
         User bob = user(2L, "bob");
         Game game = game(GAME_ID, gametype("301"), null);
-        GameStat aliceStat = stat(alice, game, 241, 0, 0);
-        stat(bob, game, 50, 0, 1);
+        GameStat aliceStat = stat(alice, game, 60, 4, 0);
+        stat(bob, game, 301, 4, 1);
         Session session = session(SESSION_ID, alice, game);
 
         when(userRepository.findByUserName("alice")).thenReturn(Optional.of(alice));
@@ -360,12 +367,15 @@ class GameServiceTest {
                 .thenReturn(Optional.of(aliceStat));
 
         GameResponse response = gameService.playRound(
-                new PlayedRoundRequest("alice", "20 3", GAME_ID), "alice", SESSION_ID);
+                new PlayedRoundRequest("alice", "20 1 20 2", GAME_ID), "alice", SESSION_ID);
 
         assertThat(response.turn()).isEqualTo("alice");
         assertThat(response.isFinished()).isTrue();
         assertThat(game.getWinner()).isEqualTo(alice);
-        assertThat(aliceStat.getPoints()).isEqualTo(301);
+        assertThat(aliceStat.getPoints()).isZero();
+        assertThat(aliceStat.getHighestCheckout()).isEqualTo(60);
+        assertThat(alice.getStats().getAvgPoints()).isEqualTo(301f / 5);
+        assertThat(bob.getStats().getAvgPoints()).isZero();
     }
 
     @Test
@@ -373,7 +383,7 @@ class GameServiceTest {
         User alice = user(1L, "alice");
         User bob = user(2L, "bob");
         Game game = game(GAME_ID, gametype("301"), null);
-        GameStat aliceStat = stat(alice, game, 290, 0, 0);
+        GameStat aliceStat = stat(alice, game, 11, 0, 0);
         stat(bob, game, 50, 0, 1);
         Session session = session(SESSION_ID, alice, game);
 
@@ -389,7 +399,121 @@ class GameServiceTest {
 
         assertThat(response.turn()).isEqualTo("bob");
         assertThat(response.isFinished()).isFalse();
-        assertThat(aliceStat.getPoints()).isEqualTo(290);
+        assertThat(aliceStat.getPoints()).isEqualTo(11);
         assertThat(aliceStat.getTurn()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"301", "501"})
+    void getGameStats_includesStartingPointsWithAndWithoutPlayerFilter(final String gameType) {
+        User alice = user(1L, "alice");
+        Game game = game(GAME_ID, gametype(gameType), null);
+        stat(alice, game, 41, 3, 0);
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
+
+        for (Optional<List<String>> players : List.of(Optional.<List<String>>empty(),
+                Optional.of(List.of("alice")))) {
+            var stats = gameService.getGameStats(GAME_ID, players);
+            assertThat(stats).hasSize(1);
+            assertThat(stats.get(0).startingPoints()).isEqualTo(Integer.parseInt(gameType));
+            assertThat(stats.get(0).points()).isEqualTo(41);
+        }
+    }
+
+    @Test
+    void startGame_prefersPlayedGameEvenAfterZeroScoreTurn() {
+        User alice = user(1L, "alice");
+        Game unstarted = game(GAME_ID, gametype("501"), null);
+        stat(alice, unstarted, 501, 0, 0);
+        Game started = game(GAME_ID + 1, gametype("501"), null);
+        stat(alice, started, 501, 1, 0);
+        Session session = session(SESSION_ID, alice, unstarted, started);
+        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(userRepository.findUserNameById(1L)).thenReturn(Optional.of("alice"));
+
+        assertThat(gameService.startGame("501", SESSION_ID, "alice").gameId())
+                .isEqualTo(started.getGameId());
+    }
+
+    @Test
+    void deleteGame_onlyDeletesGameWithoutTurns() {
+        User alice = user(1L, "alice");
+        Game started = game(GAME_ID, gametype("501"), null);
+        stat(alice, started, 501, 1, 0);
+        Game unstarted = game(GAME_ID + 1, gametype("501"), null);
+        stat(alice, unstarted, 501, 0, 0);
+        Session session = session(SESSION_ID, alice, started, unstarted);
+        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+
+        gameService.deleteGame(SESSION_ID, "alice", "501");
+
+        verify(gameRepository).delete(unstarted);
+        assertThat(session.getGames()).containsExactly(started);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "40, '20 2', 0, true, 0, 0, 40",
+        "50, '25 2', 0, true, 0, 1, 50",
+        "40, '0 1 20 2', 0, true, 0, 0, 40",
+        "40, '20 2 20 3 25 2', 0, true, 0, 0, 40",
+        "20, '20 1', 20, false, 0, 0, 0",
+        "60, '20 3', 60, false, 1, 0, 0",
+        "25, '25 1', 25, false, 0, 1, 0",
+        "21, '20 1', 21, false, 0, 0, 0",
+        "40, '20 1 19 1', 40, false, 0, 0, 0",
+        "40, '20 1 20 3 25 2', 40, false, 1, 0, 0",
+        "40, '20 1 20 1', 40, false, 0, 0, 0",
+        "100, '20 3 20 2', 0, true, 1, 0, 100",
+        "501, '20 3 20 3 20 3', 321, false, 3, 0, 180",
+        "501, '0 1', 501, false, 0, 0, 0"
+    })
+    void playRound_doubleOutRules(final int points, final String score,
+                                 final int remaining, final boolean won,
+                                 final int triples, final int bullseyes, final int highest) {
+        User alice = user(1L, "alice");
+        Game game = game(GAME_ID, gametype("501"), null);
+        GameStat stat = stat(alice, game, points, 0, 0);
+        Session session = session(SESSION_ID, alice, game);
+        when(userRepository.findByUserName("alice")).thenReturn(Optional.of(alice));
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
+        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(gameStatRepository.findById(new GameStatsId(1L, GAME_ID)))
+                .thenReturn(Optional.of(stat));
+        if (!won) {
+            when(userRepository.getReferenceById(1L)).thenReturn(alice);
+        }
+
+        GameResponse response = gameService.playRound(
+                new PlayedRoundRequest("alice", score, GAME_ID), "alice", SESSION_ID);
+
+        assertThat(response.isFinished()).isEqualTo(won);
+        assertThat(stat.getPoints()).isEqualTo(remaining);
+        assertThat(stat.getTurn()).isEqualTo(1);
+        assertThat(stat.getTriple20s()).isEqualTo(triples);
+        assertThat(stat.getBullseyes()).isEqualTo(bullseyes);
+        assertThat(stat.getHighestScore()).isEqualTo(highest);
+        assertThat(stat.getHighestCheckout()).isEqualTo(won ? points : 0);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"20 3 20 3 20 3 1 1", "-20 2", "20 -2", "0 2",
+            "25 3", "21 1", "20", "abc", "20 2 garbage"})
+    void playRound_invalidDartsDoNotChangeStats(final String score) {
+        User alice = user(1L, "alice");
+        Game game = game(GAME_ID, gametype("301"), null);
+        GameStat stat = stat(alice, game, 301, 0, 0);
+        Session session = session(SESSION_ID, alice, game);
+        when(userRepository.findByUserName("alice")).thenReturn(Optional.of(alice));
+        when(gameRepository.findById(GAME_ID)).thenReturn(Optional.of(game));
+        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(gameStatRepository.findById(new GameStatsId(1L, GAME_ID)))
+                .thenReturn(Optional.of(stat));
+
+        assertThatThrownBy(() -> gameService.playRound(
+                new PlayedRoundRequest("alice", score, GAME_ID), "alice", SESSION_ID))
+                .isInstanceOf(InvalidScoreException.class);
+        assertThat(stat.getPoints()).isEqualTo(301);
+        assertThat(stat.getTurn()).isZero();
     }
 }

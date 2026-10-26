@@ -177,6 +177,8 @@ class SessionServiceTest {
         assertThat(saved.getGames()).hasSize(1);
         assertThat(saved.getGames().get(0).getGametype()).isEqualTo(gametype);
         assertThat(saved.getGames().get(0).getSession()).isEqualTo(saved);
+        assertThat(saved.getGames().get(0).getGameStats())
+                .extracting(GameStat::getPoints).containsExactly(501);
     }
 
     @Test
@@ -392,6 +394,7 @@ class SessionServiceTest {
         assertThat(game.getSession()).isEqualTo(session);
         assertThat(game.getGameStats()).hasSize(2);
         assertThat(game.getGameStats()).allMatch(stat -> stat.getTurn() == 0);
+        assertThat(game.getGameStats()).allMatch(stat -> stat.getPoints() == 501);
         assertThat(result).isEqualTo(new SessionResponse(7L, PLAYED_AT.toString(),
                 List.of(new GametypeResponse("501")), true));
         verify(sessionRepository).findById(7L);
@@ -460,6 +463,7 @@ class SessionServiceTest {
         List<GameStat> stats = newGame.getGameStats();
         assertThat(stats.get(0).getPosition()).isZero();
         assertThat(stats.get(0).getUser()).isEqualTo(owner);
+        assertThat(stats).extracting(GameStat::getPoints).containsExactly(301, 301);
     }
 
     @Test

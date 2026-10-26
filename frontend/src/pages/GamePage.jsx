@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getGameState, playRound } from '../api';
 import DartboardInput from '../components/DartboardInput';
+import { canSubmitRound, serializeRound } from '../dartRound';
 import GameStatsTable from '../components/GameStatsTable';
 
 // Array of all numbers from 1-20+25
@@ -65,7 +66,7 @@ export default function GamePage() {
     const multiplier = Number(slot.multiplier);
     return sum + (value > 0 && multiplier > 0 ? value * multiplier : 0);
   }, 0);
-  const allFilled = slots.every((slot) => slot.value !== '');
+  const canSubmit = canSubmitRound(slots);
 
   function updateSlot(index, field, value) {
     setSlots((prev) => {
@@ -93,13 +94,11 @@ export default function GamePage() {
   }
 
   async function handleSubmit() {
+    if (!canSubmit || submitting) return;
     setSubmitting(true);
     setActionError('');
     try {
-      const score = slots
-        .filter((slot) => Number(slot.value) > 0)
-        .map((slot) => `${slot.value} ${slot.multiplier}`)
-        .join(' ');
+      const score = serializeRound(slots);
       await playRound({
         sessionId: id,
         gameId,
@@ -177,7 +176,11 @@ export default function GamePage() {
           </div>
           <div className="game-stats-section">
             <h2>Game stats</h2>
-            <GameStatsTable players={game.players} winner={game.winner} />
+            <GameStatsTable
+              players={game.players}
+              winner={game.winner}
+              startingPoints={game.startingPoints}
+            />
           </div>
         </>
       ) : (
@@ -186,6 +189,7 @@ export default function GamePage() {
           <p className="game-shared-hint">
             Playing on one device — each player enters their throws when it's
             their turn.
+            {' '}Enter 1–3 darts in order; leave unused darts blank. Finish on a double.
           </p>
           <div
             className="game-input-mode"
@@ -289,7 +293,7 @@ export default function GamePage() {
             type="button"
             className="btn game-register"
             onClick={handleSubmit}
-            disabled={!allFilled || submitting}
+            disabled={!canSubmit || submitting}
           >
             {submitting ? 'Registering...' : 'Register Round'}
           </button>
