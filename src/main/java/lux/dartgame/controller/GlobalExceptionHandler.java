@@ -6,17 +6,15 @@ import lux.dartgame.exception.AccessDeniedException;
 import lux.dartgame.exception.EmailAlreadyExistsException;
 import lux.dartgame.exception.GameModeNotFoundException;
 import lux.dartgame.exception.GameNotFoundException;
-import lux.dartgame.exception.GameStatNotFoundException;
+import lux.dartgame.exception.GameConflictException;
 import lux.dartgame.exception.InvalidScoreException;
 import lux.dartgame.exception.InvalidTurnException;
-import lux.dartgame.exception.NoAvailableGameException;
-import lux.dartgame.exception.NoSessionsForThisUserException;
 import lux.dartgame.exception.RoleNotFoundException;
-import lux.dartgame.exception.SessionNotFoundException;
 import lux.dartgame.exception.UsernameAlreadyExistsException;
 import lux.dartgame.exception.UsernameNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -65,7 +63,7 @@ public final class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidScoreException.class)
     public ResponseEntity<ErrorResponse> handleInvalidScore(final InvalidScoreException e) {
-        log.error("INVALID SCORE", e);
+        log.warn("Invalid score: {}", e.getMessage());
         return respond(HttpStatus.NOT_ACCEPTABLE, e.getMessage());
     }
 
@@ -82,23 +80,20 @@ public final class GlobalExceptionHandler {
         return respond(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
-    //  Note: HTTP forbids a body on 204, so the payload below is discarded by the
-    //  container and the client receives no message. Kept as-is to avoid changing
-    //  the endpoint contract; the frontend's "no sessions yet" branch keys off 404
-    //  and therefore never fires.
-
-    @ExceptionHandler(NoSessionsForThisUserException.class)
-    public ResponseEntity<ErrorResponse> handleSessionNotFoundForUser(
-            final NoSessionsForThisUserException e) {
-        log.warn("Session not found: {}", e.getMessage());
-        return respond(HttpStatus.NO_CONTENT, e.getMessage());
+    @ExceptionHandler(GameConflictException.class)
+    public ResponseEntity<ErrorResponse> handleGameConflict(final GameConflictException e) {
+        return respond(HttpStatus.CONFLICT, e.getMessage());
     }
 
-    @ExceptionHandler(SessionNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleSessionNotFound(
-            final SessionNotFoundException e) {
-        log.warn("Session not found: {}", e.getMessage());
-        return respond(HttpStatus.NOT_FOUND, e.getMessage());
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(final IllegalArgumentException e) {
+        return respond(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(
+            final HttpMessageNotReadableException e) {
+        return respond(HttpStatus.BAD_REQUEST, "Invalid request body");
     }
 
     @ExceptionHandler(GameModeNotFoundException.class)
@@ -108,23 +103,9 @@ public final class GlobalExceptionHandler {
         return respond(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
-    @ExceptionHandler(GameStatNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleGameStatNotFound(
-            final GameStatNotFoundException e) {
-        log.warn("Game stat not found: {}", e.getMessage());
-        return respond(HttpStatus.NOT_FOUND, e.getMessage());
-    }
-
     @ExceptionHandler(GameNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleGameNotFound(final GameNotFoundException e) {
         log.warn("Game not found: {}", e.getMessage());
-        return respond(HttpStatus.NOT_FOUND, e.getMessage());
-    }
-
-    @ExceptionHandler(NoAvailableGameException.class)
-    public ResponseEntity<ErrorResponse> handleGameNotAvailable(
-            final NoAvailableGameException e) {
-        log.warn("Game not available in this session: {}", e.getMessage());
         return respond(HttpStatus.NOT_FOUND, e.getMessage());
     }
 

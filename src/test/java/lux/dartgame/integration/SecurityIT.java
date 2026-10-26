@@ -1,190 +1,108 @@
 package lux.dartgame.integration;
 
 import java.util.List;
-import java.util.Set;
-
-import lux.dartgame.dto.CreateSessionRequest;
-import lux.dartgame.dto.GameRequest;
-import lux.dartgame.dto.LoginRequest;
+import lux.dartgame.dto.CreateGameRequest;
+import lux.dartgame.dto.MatchResponse;
 import lux.dartgame.dto.PlayedRoundRequest;
-import lux.dartgame.dto.SessionResponse;
+import lux.dartgame.dto.UserRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * End-to-end coverage of the authorisation rules. Every request travels the
- * real security filter chain, and each test then inspects the database to show
- * that a rejected request wrote nothing.
- */
 class SecurityIT extends AbstractIT {
-
-    private static final String ALICE = "alice-sec";
-    private static final String BOB = "bob-sec";
-    private static final String CAROL = "carol-sec";
-
     @Test
-    void gamemodeList_isPublicOnlyAfterLogin() {
-        register(ALICE);
-
-        ResponseEntity<String> anonymous = rest().getForEntity(GAMEMODE_URL, String.class);
-        assertThat(anonymous.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(anonymous.getBody()).isNull();
-
-        String token = login(ALICE, PASSWORD);
-        ResponseEntity<String> authenticated = rest().exchange(
-                GAMEMODE_URL, HttpMethod.GET, new HttpEntity<>(bearer(token)), String.class);
-
-        assertThat(authenticated.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(authenticated.getBody()).contains(TARGET_501);
+    void unauthenticatedRequestsAreRejected() {
+        assertThat(rest().getForEntity(GAMES_URL, String.class).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(rest().postForEntity(GAMES_URL,
+                new CreateGameRequest("301", List.of()), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(countRows("matches")).isZero();
     }
 
     @Test
-    void registerAndLogin_arePublic() {
-        register(ALICE);
-
-        ResponseEntity<String> response = rest().postForEntity(
-                AUTH_URL + "/login",
-                new LoginRequest(ALICE, PASSWORD), String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).contains("token");
+    void nonMembersCannotReadStartScoreAbandonOrDelete() {
+        String alice = register("alice");
+        String stranger = register("stranger");
+        MatchResponse game = create(alice, List.of());
+        String url = GAMES_URL + "/" + game.gameId();
+        assertThat(rest().exchange(url, HttpMethod.GET,
+                new HttpEntity<>(bearer(stranger)), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+        for (String action : List.of("start", "abandon")) {
+            assertThat(rest().postForEntity(url + "/" + action, authed(stranger, null),
+                    String.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        }
+        assertThat(rest().exchange(url, HttpMethod.DELETE,
+                new HttpEntity<>(bearer(stranger)), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(rest().postForEntity(url + "/rounds", authed(stranger,
+                new PlayedRoundRequest("alice", "20 3", game.currentLegId(), game.revision())),
+                String.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(rest().exchange(GAMES_URL, HttpMethod.GET,
+                new HttpEntity<>(bearer(stranger)), List.class).getBody()).isEmpty();
     }
 
     @Test
-    void deleteSession_byNonOwner_isForbiddenAndTheRowSurvives() {
-        String aliceToken = register(ALICE);
-        String bobToken = register(BOB);
-
-        ResponseEntity<SessionResponse> created = rest().postForEntity(
-                SESSION_URL,
-                authed(aliceToken, new CreateSessionRequest(
-                        Set.of(), List.of(new GameRequest(TARGET_301)))),
-                SessionResponse.class);
-        long sessionId = created.getBody().id();
-
-        ResponseEntity<String> response = rest().exchange(
-                SESSION_URL + "/" + sessionId, HttpMethod.DELETE,
-                new HttpEntity<>(bearer(bobToken)), String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(countRows("sessions")).isEqualTo(1);
-        assertThat(jdbc().queryForObject(
-                "SELECT owner_id FROM sessions WHERE session_id = ?", Long.class, sessionId))
-                .isEqualTo(userId(ALICE));
-    }
-
-    @Test
-    void addGames_byNonOwner_isForbiddenAndTheRowSurvives() {
-        String aliceToken = register(ALICE);
-        String bobToken = register(BOB);
-
-        ResponseEntity<SessionResponse> created = rest().postForEntity(
-                SESSION_URL,
-                authed(aliceToken, new CreateSessionRequest(
-                        Set.of(), List.of(new GameRequest(TARGET_301)))),
-                SessionResponse.class);
-        long sessionId = created.getBody().id();
-
-        ResponseEntity<String> response = rest().exchange(
-                SESSION_URL + "/" + sessionId, HttpMethod.POST,
-                authed(bobToken, List.of(new GameRequest(TARGET_501))), String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        // Still only the one 301 game the owner created.
-        assertThat(countRows("games")).isEqualTo(1);
-        assertThat(jdbc().queryForObject(
-                "SELECT COUNT(*) FROM games g JOIN gametypes t ON t.gametype_id = g.gametype_id"
-                        + " WHERE g.session_id = ? AND t.gametype = ?",
-                Integer.class, sessionId, TARGET_501))
+    void membersCannotManageOwnersGameOrScoreOutOfTurnOrAnotherLeg() {
+        String alice = register("alice");
+        String bob = register("bob");
+        MatchResponse game = create(alice, List.of(new UserRequest("bob")));
+        MatchResponse other = create(alice, List.of(new UserRequest("bob")));
+        String url = GAMES_URL + "/" + game.gameId();
+        assertThat(rest().exchange(url, HttpMethod.DELETE,
+                new HttpEntity<>(bearer(bob)), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+        game = rest().postForObject(url + "/start", authed(alice, null), MatchResponse.class);
+        assertThat(rest().postForEntity(url + "/abandon", authed(bob, null), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(rest().postForEntity(url + "/rounds", authed(bob,
+                new PlayedRoundRequest("bob", "20 3", game.currentLegId(), game.revision())),
+                String.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(rest().postForEntity(url + "/rounds", authed(bob,
+                new PlayedRoundRequest("alice", "20 3", other.currentLegId(), game.revision())),
+                String.class).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(jdbc().queryForObject("SELECT SUM(turn) FROM leg_player_stats", Integer.class))
                 .isZero();
     }
 
     @Test
-    void getSessions_forUnknownUser_isNotFound() {
-        String token = register(ALICE);
-
-        ResponseEntity<String> response = rest().exchange(
-                SESSION_URL + "?username=" + CAROL, HttpMethod.GET,
-                new HttpEntity<>(bearer(token)), String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(response.getBody()).contains("User not found");
+    void administratorCanInspectAndDeletePendingButCannotErasePlayedHistory() {
+        String alice = register("alice");
+        register("admin");
+        jdbc().update("UPDATE users SET role_id = (SELECT role_id FROM roles WHERE role='ADMIN') "
+                + "WHERE user_name='admin'");
+        String admin = login("admin", PASSWORD);
+        MatchResponse pending = create(alice, List.of());
+        String url = GAMES_URL + "/" + pending.gameId();
+        assertThat(rest().exchange(url, HttpMethod.GET, new HttpEntity<>(bearer(admin)),
+                MatchResponse.class).getBody().permissions().canDelete()).isTrue();
+        assertThat(rest().exchange(url, HttpMethod.DELETE, new HttpEntity<>(bearer(admin)),
+                String.class).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        MatchResponse played = create(alice, List.of());
+        url = GAMES_URL + "/" + played.gameId();
+        rest().postForObject(url + "/start", authed(alice, null), MatchResponse.class);
+        assertThat(rest().exchange(url, HttpMethod.DELETE, new HttpEntity<>(bearer(admin)),
+                String.class).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     }
 
     @Test
-    void getSessions_forUserWithoutSessions_isNoContent() {
-        String token = register(ALICE);
-
-        ResponseEntity<String> response = rest().exchange(
-                SESSION_URL + "?username=" + ALICE, HttpMethod.GET,
-                new HttpEntity<>(bearer(token)), String.class);
-
-        // The application maps "no sessions" to 204, not 404.
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    void missingRevisionAndNullPlayersAreBadRequests() {
+        String token = register("alice");
+        MatchResponse game = create(token, List.of());
+        assertThat(rest().postForEntity(GAMES_URL + "/" + game.gameId() + "/rounds",
+                authed(token, new PlayedRoundRequest("alice", "", game.currentLegId(), null)),
+                String.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(rest().postForEntity(GAMES_URL, authed(token,
+                new CreateGameRequest("301", java.util.Arrays.asList((UserRequest) null))),
+                String.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
-    @Test
-    void startGame_byNonMember_isForbiddenAndNoTurnIsConsumed() {
-        String aliceToken = register(ALICE);
-        register(BOB);
-        register(CAROL);
-
-        ResponseEntity<SessionResponse> created = rest().postForEntity(
-                SESSION_URL,
-                authed(aliceToken, new CreateSessionRequest(
-                        Set.of(), List.of(new GameRequest(TARGET_301)))),
-                SessionResponse.class);
-        long sessionId = created.getBody().id();
-        long gameId = jdbc().queryForObject(
-                "SELECT game_id FROM games WHERE session_id = ?", Long.class, sessionId);
-
-        ResponseEntity<String> response = rest().exchange(
-                SESSION_URL + "/" + sessionId + "/games?gametype=" + TARGET_301,
-                HttpMethod.GET, new HttpEntity<>(bearer(login(CAROL, PASSWORD))), String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        // Every GameStat row is still untouched at turn 0 with no points.
-        assertThat(jdbc().queryForObject(
-                "SELECT SUM(turn) FROM gamestats WHERE game_id = ?", Integer.class, gameId))
-                .isZero();
-        assertThat(jdbc().queryForObject(
-                "SELECT SUM(points) FROM gamestats WHERE game_id = ?", Integer.class, gameId))
-                .isZero();
-    }
-
-    @Test
-    void playRound_withATokenForAnotherUser_isRejected() {
-        String aliceToken = register(ALICE);
-        String bobToken = register(BOB);
-
-        ResponseEntity<SessionResponse> created = rest().postForEntity(
-                SESSION_URL,
-                authed(aliceToken, new CreateSessionRequest(
-                        Set.of(), List.of(new GameRequest(TARGET_301)))),
-                SessionResponse.class);
-        long sessionId = created.getBody().id();
-        long gameId = jdbc().queryForObject(
-                "SELECT game_id FROM games WHERE session_id = ?", Long.class, sessionId);
-
-        // Bob is not a member of Alice's session, so he may not play her game.
-        ResponseEntity<String> response = rest().exchange(
-                SESSION_URL + "/" + sessionId + "/games", HttpMethod.PUT,
-                authed(bobToken, new PlayedRoundRequest(BOB, "20 3", gameId)),
-                String.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(jdbc().queryForObject(
-                "SELECT SUM(points) FROM gamestats WHERE game_id = ?", Integer.class, gameId))
-                .isZero();
-    }
-
-    private long userId(final String username) {
-        return jdbc().queryForObject(
-                "SELECT user_id FROM users WHERE user_name = ?", Long.class, username);
+    private MatchResponse create(final String token, final List<UserRequest> players) {
+        return rest().postForObject(GAMES_URL,
+                authed(token, new CreateGameRequest("301", players)), MatchResponse.class);
     }
 }

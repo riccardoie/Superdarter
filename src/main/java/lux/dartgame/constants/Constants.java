@@ -10,6 +10,7 @@ public final class Constants {
     public static final int MAX_DART_NUMBER = 20;
     public static final int MAX_MULTIPLIER = 3;
     public static final int MAX_ROUND_SCORE = 180;
+    public static final int MAX_DARTS_PER_TURN = 3;
     public static final int TARGET_301 = 301;
     public static final int TARGET_501 = 501;
     public static final String GAMETYPE_301 = "301";

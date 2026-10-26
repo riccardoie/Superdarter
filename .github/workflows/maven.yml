@@ -32,6 +32,13 @@ jobs:
       - name: Build, test, and check style
         run: mvn -B -ntp clean verify -Pintegration --file pom.xml
 
+      - name: Build production Docker image
+        run: docker build -t superdarter-match-refactor:test .
+
+      - name: Smoke-test production image with Render profile
+        shell: pwsh
+        run: ./scripts/smoke-render-image.ps1
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4

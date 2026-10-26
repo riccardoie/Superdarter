@@ -1,6 +1,8 @@
-export default function GameStatsTable({ players, winner }) {
+export default function GameStatsTable({ players, winner, startingPoints }) {
   const averageScore = (player) =>
-    player.turns > 0 ? (player.points / player.turns).toFixed(1) : '0';
+    player.turns > 0
+      ? ((startingPoints - player.points) / player.turns).toFixed(1)
+      : '0';
 
   return (
     <div className="game-stats-scroll" tabIndex="0" role="region" aria-label="Game statistics">

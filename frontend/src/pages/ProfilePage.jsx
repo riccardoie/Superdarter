@@ -51,8 +51,10 @@ export default function ProfilePage() {
   }
 
   const statItems = [
-    ['Games played', stats.playedGames],
-    ['Games won', stats.wonGames],
+    ['Games played', stats.playedMatches],
+    ['Games won', stats.wonMatches],
+    ['Legs played', stats.playedLegs],
+    ['Legs won', stats.wonLegs],
     ['Average points', stats.avgPoints.toFixed(2)],
     ['Highest score', stats.highestScore],
     ['Highest checkout', stats.highestCheckout],

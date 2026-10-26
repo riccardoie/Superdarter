@@ -1,6 +1,8 @@
 # Super Darter
 
-Super Darter is a web application for organising and playing dart-game sessions. Players can register, create sessions, select game modes, invite other players, record rounds, finish sessions, and review game and player statistics.
+Super Darter is a web application for playing 301 and 501 darts. Players create games directly, add up to nine other registered players, score double-out legs, and review results and player statistics. Solo play is supported.
+
+**Breaking match refactor:** this release requires a fresh database for an existing deployment. Follow [the Render cutover checklist](docs/render-match-cutover.md) before deploying. Existing accounts and game history are not migrated.
 
 Deployment is configured for Render via `render.yaml`.
 
@@ -40,14 +42,10 @@ docker compose --profile dev down -v
 docker compose --profile dev up --build
 ```
 
-This also removes the Maven cache volume. Flyway creates the schema from
-`V1__init_schema.sql`, then adds the 301 and 501 game types via
-`V2__add_301_and_501_gametypes.sql`. No demo data is inserted. The `USER` role must
-be added before registration works.
-
-This consolidated baseline replaces the previous V1–V11 migrations. Existing
-databases must be reset or migrated using a separately planned baseline strategy;
-do not deploy it unchanged against an existing database's Flyway history.
+This also removes the Maven cache volume. Flyway applies V1–V4: schema, 301/501
+game types, roles, and the new match/leg model. Registration works immediately;
+no demo users are inserted. V4 refuses to replace existing session history.
+Do not rewrite already-applied migrations or use Flyway repair to bypass the guard.
 
 ## Tests
 
@@ -57,11 +55,12 @@ Run the backend unit tests from the repository root:
 mvn test
 ```
 
-The frontend has no automated test script. Run its static checks from `frontend/`:
+Run the frontend tests and static checks from `frontend/`:
 
 ```bash
 npm ci
 npm run lint
+npm test
 npm run build
 ```
 
@@ -75,8 +74,9 @@ mvn -B clean verify -Pintegration
 
 GitHub Actions runs **Backend CI** and **Frontend CI** on pull requests targeting
 `main` or `dev`, pushes to either branch, and manual dispatches. Backend CI builds
-the JAR, runs unit and integration tests, and checks Checkstyle. Frontend CI runs
-ESLint and builds the production assets. Require both job checks in the `main`
+the JAR, runs unit and integration tests, checks Checkstyle, and smoke-tests the
+production Docker image with the Render profile. Frontend CI runs
+ESLint, runs frontend tests, and builds the production assets. Require both job checks in the `main`
 branch ruleset. Neither workflow needs production secrets or a shared database;
 integration tests use a disposable PostgreSQL container.
 
@@ -95,9 +95,8 @@ integration tests use a disposable PostgreSQL container.
 4. Render wires database credentials automatically and generates a Base64 JWT
    secret. The `render` Spring profile configures the JDBC URL and Render's `PORT`.
    Flyway applies the repository's migrations on backend startup.
-   This checkout includes `V2__seed_data.sql` with demo users and games: review
-   those migrations before the first production deployment. This CI/hosting
-   configuration does not remove or rewrite seed data.
+    V2 adds game types and V3 adds roles; no demo accounts are installed. V4
+    replaces the session schema only when no legacy session history exists.
 5. Both services deploy from `main` using **After CI Checks Pass**
    (`autoDeployTrigger: checksPass`). Confirm this setting and GitHub check access
    in Render. Initial Blueprint/manual deploys are not a substitute for the PR CI gate.
@@ -126,9 +125,9 @@ existing production database.
 
 ## Architecture
 
-- **Frontend:** React 19 and Vite provide the single-page application in `frontend/`. React Router protects session, game, and profile routes; the client stores the JWT and calls the REST API.
-- **Backend:** Java 25, Spring Boot, Spring Security, and JPA implement authentication plus session, game, game-mode, and player-statistics APIs in `src/main/java/`.
-- **Database:** PostgreSQL 16 stores users, sessions, games, game modes, and statistics. Flyway migrations in `src/main/resources/db/migration/` create the schema and add the 301 and 501 game types on startup without demo data.
+- **Frontend:** React 19 and Vite provide the single-page application in `frontend/`. Protected routes are `/games`, `/games/:gameId`, and `/profile`. Reloads retrieve complete game state from the backend, without a session or cached response.
+- **Backend:** Java 25, Spring Boot, Spring Security, and JPA implement authentication plus game, game-mode, and player-statistics APIs. Player-facing games are `Match` entities containing participants and `Leg` entities. Scoring rules are independent of persistence.
+- **Database:** PostgreSQL 16 stores users, matches, match participants, legs, leg-player statistics, game modes, and player totals. Applied Flyway migrations are retained unchanged; V4 introduces the new model.
 - **Local deployment:** Docker Compose starts PostgreSQL, the Spring Boot development server, and the Vite development server. The production profile (`docker compose --profile prod up --build`) instead serves the built frontend through Nginx.
 - **Cloud deployment:** Render builds and deploys the Docker backend and frontend static site after GitHub CI checks pass on `main`. Render PostgreSQL stores application data. `render.yaml` defines the services and database.
 
@@ -143,8 +142,8 @@ The team mapped the five required placeholders to the application domain as foll
 
 | Placeholder | Super Darter domain |
 | --- | --- |
-| Primary | Session |
-| Child | Game |
+| Primary | Match (player-facing game) |
+| Child | Leg |
 | User | User |
 | Tag | Game mode |
 | Interaction | Playing games with other players |
@@ -154,7 +153,17 @@ The team mapped the five required placeholders to the application domain as foll
 ```text
 frontend/                         React and Vite application
 src/main/java/lux/dartgame/       Spring Boot API
-src/main/resources/db/migration/  Flyway schema and seed migrations
+src/main/resources/db/migration/  Flyway schema and reference-data migrations
+docs/                            Game API and Render cutover checklist
 .github/workflows/                Backend, frontend, and commit checks
 render.yaml                       Render service and database Blueprint
 ```
+
+## Game lifecycle and API
+
+See [the game API](docs/games-api.md) for request/response examples and permissions.
+The initial format is one leg per match; first-to-N and sets are follow-up work.
+Completed and abandoned games are retained. Only pending games may be deleted.
+Shared-device scoring remains supported. A blank round counts as all misses;
+partial rounds accept one to three darts. Checkouts require a double (including bull).
+Profile totals distinguish matches from legs; averages remain points per turn.
