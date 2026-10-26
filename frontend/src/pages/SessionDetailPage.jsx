@@ -162,12 +162,15 @@ export default function SessionDetailPage() {
         <div className="session-detail-heading">
           <div>
             <p className="session-detail-eyebrow">Session</p>
-            <h1>#{id}</h1>
+            <h1>
+              <time dateTime={session.date}>
+                {new Date(session.date).toLocaleDateString('en-GB', {
+                  dateStyle: 'medium',
+                })}
+              </time>
+            </h1>
           </div>
           <div className="session-detail-meta">
-            <span className="session-card-date">
-              {new Date(session.date).toLocaleDateString()}
-            </span>
             {session.isActive ? (
               <span className="session-card-badge">Active</span>
             ) : (
@@ -175,26 +178,34 @@ export default function SessionDetailPage() {
             )}
           </div>
         </div>
-        <div className="session-detail-actions">
-          {(isAdmin || (isOwner && session.isActive)) && (
-            <button
-              className="btn btn-danger"
-              type="button"
-              onClick={() => setDeletingSession(true)}
-            >
-              Delete session
-            </button>
-          )}
-          {isOwner && session.isActive && (
-            <button
-              className="btn btn-danger"
-              type="button"
-              onClick={() => setFinishingSession(true)}
-            >
-              Finish session
-            </button>
-          )}
-        </div>
+        {(isAdmin || (isOwner && session.isActive)) && (
+          <details className="session-manage">
+            <summary>Manage session</summary>
+            <div className="session-manage-options">
+              {isOwner && session.isActive && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.currentTarget.closest('details').removeAttribute('open');
+                    setFinishingSession(true);
+                  }}
+                >
+                  Finish session
+                </button>
+              )}
+              <button
+                type="button"
+                className="session-manage-delete"
+                onClick={(event) => {
+                  event.currentTarget.closest('details').removeAttribute('open');
+                  setDeletingSession(true);
+                }}
+              >
+                Delete session
+              </button>
+            </div>
+          </details>
+        )}
       </header>
       {actionError && <p className="error-message">{actionError}</p>}
       <section className="session-detail-section">
@@ -205,11 +216,11 @@ export default function SessionDetailPage() {
           </div>
           {isOwner && session.isActive && (
             <button
-              className="btn btn-primary"
+              className="btn session-add-game"
               type="button"
               onClick={() => setAddingGames(true)}
             >
-              Add game
+              + Add game
             </button>
           )}
         </div>

@@ -1,8 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 export default function FinishedGamesList({ games, sessionId }) {
-  const navigate = useNavigate();
-
   if (games.length === 0) {
     return (
       <p className="state-message session-detail-empty">
@@ -19,13 +17,13 @@ export default function FinishedGamesList({ games, sessionId }) {
             {game.gametype} &middot; Game #{game.gameId}
           </span>
           <span className="finished-game-winner">Winner: {game.winner}</span>
-          <button
-            type="button"
-            className="btn btn-primary finished-game-view"
-            onClick={() => navigate(`/session/${sessionId}/game/${game.gameId}`)}
+          <Link
+            className="finished-game-view"
+            to={`/session/${sessionId}/game/${game.gameId}`}
+            aria-label={`View ${game.gametype} game ${game.gameId}`}
           >
             View
-          </button>
+          </Link>
         </div>
       ))}
     </div>
