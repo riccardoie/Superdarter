@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { createSession, getAllGamemodes, getUsername, MAX_TOTAL_PLAYERS } from '../api';
+import { createGame, getAllGamemodes, getUsername, MAX_TOTAL_PLAYERS } from '../api';
 
 const MAX_ADDED_PLAYERS = MAX_TOTAL_PLAYERS - 1;
 
-export default function CreateSession({ onClose, onCreated }) {
+export default function CreateGame({ onClose, onCreated }) {
   const [available, setAvailable] = useState(null);
-  const [selected, setSelected] = useState([]);
-  const [pick, setPick] = useState('');
+  const [gametype, setGametype] = useState('501');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -18,31 +17,18 @@ export default function CreateSession({ onClose, onCreated }) {
 
   useEffect(() => {
     getAllGamemodes()
-      .then((data) => setAvailable(data))
+      .then((data) => setAvailable(data.filter((g) => ['301', '501'].includes(g.gamemode))))
       .catch((err) => setError(err.message));
   }, []);
 
-  function selectGamemode(event) {
-    const gamemode = event.target.value;
-    if (gamemode) {
-      setSelected((current) => [...current, gamemode]);
-      setPick('');
-    }
-  }
-
-  function removeGamemode(index) {
-    setSelected(selected.filter((_, i) => i !== index));
-  }
-
   function addPlayer() {
-    // TODO: consider trimming surrounding whitespace before exact-match (backend does not trim)
-    const username = playerInput;
+    const username = playerInput.trim();
     if (!username.trim()) {
       setPlayerError('Enter a username');
       return;
     }
     if (username === owner) {
-      setPlayerError('That is you — you are already in the session');
+      setPlayerError('That is you — you are already in the game');
       return;
     }
     if (players.includes(username)) {
@@ -68,8 +54,8 @@ export default function CreateSession({ onClose, onCreated }) {
     setSubmitting(true);
     setError('');
     try {
-      await createSession({ gamemodes: selected, players });
-      onCreated();
+      const game = await createGame({ gametype, players });
+      onCreated(game);
     } catch (err) {
       setError(
         err.status === 404
@@ -81,14 +67,15 @@ export default function CreateSession({ onClose, onCreated }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={submitting ? undefined : onClose}>
       <div
         className="modal"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="create-game-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2>Create Session</h2>
+        <h2 id="create-game-title">Create game</h2>
         <form className="form" onSubmit={handleSubmit}>
           {available === null && !error && (
             <p className="state-message">Loading gamemodes...</p>
@@ -97,8 +84,8 @@ export default function CreateSession({ onClose, onCreated }) {
           {available && (
             <div className="gamemode-picker">
               <div className="gamemode-picker-row">
-                <select value={pick} onChange={selectGamemode}>
-                  <option value="">Select gamemode...</option>
+                <select value={gametype} onChange={(event) => setGametype(event.target.value)}
+                  aria-label="Game type" disabled={submitting}>
                   {available.map((gametype) => (
                     <option key={gametype.gamemode} value={gametype.gamemode}>
                       {gametype.gamemode}
@@ -106,22 +93,7 @@ export default function CreateSession({ onClose, onCreated }) {
                   ))}
                 </select>
               </div>
-              {selected.length > 0 && (
-                <div className="gamemode-pills">
-                  {selected.map((gamemode, index) => (
-                    <span key={index} className="gamemode-pill">
-                      {gamemode}
-                      <button
-                        type="button"
-                        onClick={() => removeGamemode(index)}
-                        aria-label={`Remove ${gamemode}`}
-                      >
-                        &times;
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+              <p className="player-hint">Single leg · double-out</p>
             </div>
           )}
           <div className="player-picker">
@@ -173,15 +145,15 @@ export default function CreateSession({ onClose, onCreated }) {
             </p>
           </div>
           <div className="modal-actions">
-            <button className="btn" type="button" onClick={onClose}>
+            <button className="btn" type="button" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
             <button
               className="btn btn-primary"
               type="submit"
-              disabled={selected.length === 0 || submitting}
+              disabled={!available?.length || submitting}
             >
-              Create
+              {submitting ? 'Creating…' : 'Create game'}
             </button>
           </div>
         </form>

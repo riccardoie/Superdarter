@@ -22,8 +22,10 @@ public class PlayerStat {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long playerStatId;
     private float avgPoints;
-    private int wonGames;
-    private int playedGames;
+    private int wonMatches;
+    private int playedMatches;
+    private int wonLegs;
+    private int playedLegs;
     private int triple20s;
     private int bullseyes;
     private int highestScore;

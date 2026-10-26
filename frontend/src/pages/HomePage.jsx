@@ -5,8 +5,8 @@ import supportingPlayer from '../assets/Red Dragon Players_ jsname=_kn3ccd.png';
 
 export default function HomePage() {
   const { isAuthenticated } = useAuth();
-  const primaryDestination = isAuthenticated ? '/sessions' : '/register';
-  const primaryLabel = isAuthenticated ? 'View sessions' : 'Join Superdarter';
+  const primaryDestination = isAuthenticated ? '/games' : '/register';
+  const primaryLabel = isAuthenticated ? 'View games' : 'Join Superdarter';
 
   return (
     <div className="home-page">
@@ -18,7 +18,7 @@ export default function HomePage() {
             <span> throw count.</span>
           </h1>
           <p className="home-intro">
-            Set up a session, settle the score, and keep the numbers that make
+            Set up a game, settle the score, and keep the numbers that make
             every game worth remembering.
           </p>
           <div className="home-actions">
@@ -48,8 +48,8 @@ export default function HomePage() {
       <section className="home-feature-grid" aria-label="Lux features">
         <article className="home-feature home-feature-stat">
           <span className="home-feature-number">01</span>
-          <h2>Start a session in seconds.</h2>
-          <p>Bring your players together, choose the games, and get to the oche.</p>
+          <h2>Start a game in seconds.</h2>
+          <p>Bring your players together, choose 301 or 501, and get to the oche.</p>
         </article>
         <article className="home-feature home-feature-photo">
           <div className="home-player-photo home-player-photo-secondary">

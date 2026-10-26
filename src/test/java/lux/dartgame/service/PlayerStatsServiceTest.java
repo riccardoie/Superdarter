@@ -48,8 +48,8 @@ class PlayerStatsServiceTest {
         PlayerStat stat = new PlayerStat();
         stat.setPlayer(user(username));
         stat.setAvgPoints(avgPoints);
-        stat.setWonGames(wonGames);
-        stat.setPlayedGames(playedGames);
+        stat.setWonMatches(wonGames);
+        stat.setPlayedMatches(playedGames);
         stat.setTriple20s(triple20s);
         stat.setBullseyes(bullseyes);
         stat.setHighestScore(highestScore);
@@ -75,7 +75,7 @@ class PlayerStatsServiceTest {
                 bullseyes,
                 highestScore,
                 highestCheckout,
-                avgCheckoutAccuracy);
+                avgCheckoutAccuracy, 0, 0);
     }
 
     @Test
