@@ -148,13 +148,13 @@ class SecurityIT extends AbstractIT {
                 HttpMethod.GET, new HttpEntity<>(bearer(login(CAROL, PASSWORD))), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        // Every GameStat row is still untouched at turn 0 with no points.
+        // The player's GameStat is untouched at turn 0 with 301 remaining.
         assertThat(jdbc().queryForObject(
                 "SELECT SUM(turn) FROM gamestats WHERE game_id = ?", Integer.class, gameId))
                 .isZero();
         assertThat(jdbc().queryForObject(
                 "SELECT SUM(points) FROM gamestats WHERE game_id = ?", Integer.class, gameId))
-                .isZero();
+                .isEqualTo(301);
     }
 
     @Test
@@ -180,7 +180,7 @@ class SecurityIT extends AbstractIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(jdbc().queryForObject(
                 "SELECT SUM(points) FROM gamestats WHERE game_id = ?", Integer.class, gameId))
-                .isZero();
+                .isEqualTo(301);
     }
 
     private long userId(final String username) {
