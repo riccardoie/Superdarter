@@ -42,8 +42,8 @@ docker compose --profile dev down -v
 docker compose --profile dev up --build
 ```
 
-This also removes the Maven cache volume. Flyway applies V1–V4: schema, 301/501
-game types, roles, and the new match/leg model. Registration works immediately;
+This also removes the Maven cache volume. Flyway applies V1–V5: schema, 301/501
+game types, roles, the new match/leg model, and first-to leg targets. Registration works immediately;
 no demo users are inserted. V4 refuses to replace existing session history.
 Do not rewrite already-applied migrations or use Flyway repair to bypass the guard.
 
@@ -162,8 +162,13 @@ render.yaml                       Render service and database Blueprint
 ## Game lifecycle and API
 
 See [the game API](docs/games-api.md) for request/response examples and permissions.
-The initial format is one leg per match; first-to-N and sets are follow-up work.
+Choose a single leg or first to 2–99 leg wins when creating a game. Each game uses
+one game type throughout. The next leg starts automatically, with the starting
+player rotating through the participant order. Sets remain follow-up work.
 Completed and abandoned games are retained. Only pending games may be deleted.
 Shared-device scoring remains supported. A blank round counts as all misses;
 partial rounds accept one to three darts. Checkouts require a double (including bull).
 Profile totals distinguish matches from legs; averages remain points per turn.
+Completed legs count immediately, even if the match is later abandoned; match
+participation and wins count only when somebody reaches the target. V5 upgrades
+existing match databases without a reset and defaults their target to one leg.

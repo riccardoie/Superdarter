@@ -238,6 +238,128 @@ class GameFlowIT extends AbstractIT {
         assertThat(countRows("matches")).isZero();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"301", "501"})
+    void firstToTwoRotatesStartersPreservesLegsAndAwardsMatchOnlyAtTarget(final String type) {
+        String token = register("alice");
+        register("bob");
+        register("carol");
+        var created = rest().postForEntity(GAMES_URL, authed(token,
+                new CreateGameRequest(type, List.of(new UserRequest("bob"),
+                        new UserRequest("carol")), 2)), MatchResponse.class);
+        assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        MatchResponse game = start(token, created.getBody().gameId());
+        assertThat(game.legsToWin()).isEqualTo(2);
+        assertThat(game.format()).isEqualTo("FIRST_TO_LEGS");
+        assertThat(game.turn()).isEqualTo("alice");
+        MatchResponse previous = game;
+        game = winLeg(token, game, "alice");
+        assertThat(game.status()).isEqualTo(MatchStatus.IN_PROGRESS);
+        assertThat(game.winner()).isNull();
+        assertThat(game.finishedAt()).isNull();
+        assertThat(game.legs()).hasSize(2);
+        assertThat(game.currentLegId()).isPositive().isNotEqualTo(previous.currentLegId());
+        assertThat(game.turn()).isEqualTo("bob");
+        int starting = Integer.parseInt(type);
+        assertThat(game.players()).allMatch(p -> p.points() == starting && p.turns() == 0);
+        assertThat(game.legs().getFirst().winner()).isEqualTo("alice");
+        assertThat(game.legs().getFirst().players().getFirst().points()).isZero();
+        assertThat(jdbc().queryForObject("SELECT SUM(played_matches) FROM playerstats",
+                Integer.class)).isZero();
+        assertThat(round(token, previous, "alice", "20 2").getStatusCode())
+                .isEqualTo(HttpStatus.CONFLICT);
+        assertThat(get(token, game.gameId())).isEqualTo(game);
+
+        game = winLeg(token, game, "bob");
+        assertThat(game.turn()).isEqualTo("carol");
+        assertThat(game.legs()).hasSize(3);
+        assertThat(game.status()).isEqualTo(MatchStatus.IN_PROGRESS);
+        game = winLeg(token, game, "alice");
+        assertThat(game.status()).isEqualTo(MatchStatus.COMPLETED);
+        assertThat(game.winner()).isEqualTo("alice");
+        assertThat(game.legs()).hasSize(3); // No extra leg after the target is reached.
+        assertThat(game.players()).filteredOn(p -> p.username().equals("alice"))
+                .extracting(MatchResponse.Player::legsWon).containsExactly(2L);
+        var alice = jdbc().queryForMap("SELECT p.* FROM playerstats p JOIN users u "
+                + "ON p.player_id = u.user_id WHERE u.user_name='alice'");
+        assertThat(alice.get("won_legs")).isEqualTo(2);
+        assertThat(alice.get("played_legs")).isEqualTo(3);
+        assertThat(alice.get("won_matches")).isEqualTo(1);
+        assertThat(alice.get("played_matches")).isEqualTo(1);
+        var bob = jdbc().queryForMap("SELECT p.* FROM playerstats p JOIN users u "
+                + "ON p.player_id = u.user_id WHERE u.user_name='bob'");
+        assertThat(bob.get("won_legs")).isEqualTo(1);
+        assertThat(bob.get("won_matches")).isEqualTo(0);
+        assertThat(bob.get("played_matches")).isEqualTo(1);
+        assertThat(get(token, game.gameId())).isEqualTo(game);
+    }
+
+    @Test
+    void abandonedMultiLegMatchKeepsCompletedLegTotalsButAwardsNoMatch() {
+        String token = register("alice");
+        MatchResponse created = rest().postForObject(GAMES_URL,
+                authed(token, new CreateGameRequest("501", List.of(), 3)), MatchResponse.class);
+        MatchResponse game = winLeg(token, start(token, created.gameId()), "alice");
+        assertThat(game.players().getFirst().legsWon()).isEqualTo(1);
+        assertThat(game.players().getFirst().points()).isEqualTo(501);
+        var ended = rest().postForObject(GAMES_URL + "/" + game.gameId() + "/abandon",
+                authed(token, null), MatchResponse.class);
+        assertThat(ended.status()).isEqualTo(MatchStatus.ABANDONED);
+        assertThat(ended.legs()).extracting(MatchResponse.LegSummary::status)
+                .containsExactly(MatchStatus.COMPLETED, MatchStatus.ABANDONED);
+        var total = jdbc().queryForMap("SELECT * FROM playerstats");
+        assertThat(total.get("won_legs")).isEqualTo(1);
+        assertThat(total.get("played_legs")).isEqualTo(1);
+        assertThat(total.get("won_matches")).isEqualTo(0);
+        assertThat(total.get("played_matches")).isEqualTo(0);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0, 100})
+    void invalidWinTargetsAreRejected(final int target) {
+        String token = register("alice");
+        var response = rest().postForEntity(GAMES_URL, authed(token,
+                new CreateGameRequest("501", List.of(), target)), String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(countRows("matches")).isZero();
+    }
+
+    @Test
+    void concurrentLegCheckoutCreatesOnlyOneNextLeg() throws Exception {
+        String token = register("alice");
+        var created = rest().postForObject(GAMES_URL,
+                authed(token, new CreateGameRequest("301", List.of(), 2)), MatchResponse.class);
+        MatchResponse game = start(token, created.gameId());
+        jdbc().update("UPDATE leg_player_stats SET points=40 WHERE leg_id=?", game.currentLegId());
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Callable<HttpStatus> submit = () -> HttpStatus.valueOf(
+                    round(token, game, "alice", "20 2").getStatusCode().value());
+            var results = executor.invokeAll(List.of(submit, submit));
+            assertThat(List.of(results.get(0).get(), results.get(1).get()))
+                    .containsExactlyInAnyOrder(HttpStatus.OK, HttpStatus.CONFLICT);
+        }
+        var fresh = get(token, game.gameId());
+        assertThat(fresh.legs()).hasSize(2);
+        assertThat(fresh.currentLegId()).isNotEqualTo(game.currentLegId());
+        assertThat(fresh.players().getFirst().legsWon()).isEqualTo(1);
+        assertThat(fresh.players().getFirst().points()).isEqualTo(301);
+        assertThat(jdbc().queryForObject("SELECT won_legs FROM playerstats", Integer.class))
+                .isEqualTo(1);
+    }
+
+    private MatchResponse winLeg(final String token, final MatchResponse game,
+                                 final String winner) {
+        MatchResponse current = game;
+        while (!winner.equals(current.turn())) {
+            current = play(token, current, current.turn(), "");
+        }
+        // Seed the final checkout position; all other turn/progression rules use the real API.
+        jdbc().update("UPDATE leg_player_stats SET points=40 WHERE leg_id=? "
+                + "AND user_id=(SELECT user_id FROM users WHERE user_name=?)",
+                current.currentLegId(), winner);
+        return play(token, current, winner, "20 2");
+    }
+
     private MatchResponse create(final String token, final String type,
                                  final List<UserRequest> players) {
         var response = rest().postForEntity(GAMES_URL,

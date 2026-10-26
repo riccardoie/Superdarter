@@ -48,8 +48,9 @@ public class MatchService {
 
     @Transactional
     public MatchResponse create(final CreateGameRequest request, final String actor) {
-        int startingPoints = startingPoints(request.gametype());
+        startingPoints(request.gametype());
         Match match = new Match();
+        match.setLegsToWin(request.legsToWin());
         match.setOwner(users.findByUserName(actor).orElseThrow(UsernameNotFoundException::new));
         match.setGametype(gametypes.findByGametype(request.gametype())
                 .orElseThrow(() -> new GameModeNotFoundException(request.gametype())));
@@ -61,10 +62,6 @@ public class MatchService {
         if (names.size() > Constants.MAX_NR_OF_PLAYERS) {
             throw new IllegalArgumentException("Maximum 10 players including the owner");
         }
-        Leg leg = new Leg();
-        leg.setMatch(match);
-        leg.setLegNumber(1);
-        match.getLegs().add(leg);
         for (String name : names) {
             User user = users.findByUserName(name).orElseThrow(UsernameNotFoundException::new);
             MatchParticipant participant = new MatchParticipant();
@@ -72,13 +69,8 @@ public class MatchService {
             participant.setUser(user);
             participant.setPosition(match.getParticipants().size());
             match.getParticipants().add(participant);
-            LegPlayerStat stat = new LegPlayerStat();
-            stat.setLeg(leg);
-            stat.setUser(user);
-            stat.setPosition(participant.getPosition());
-            stat.setPoints(startingPoints);
-            leg.getPlayerStats().add(stat);
         }
+        createLeg(match);
         matches.saveAndFlush(match);
         return response(match, actor);
     }
@@ -140,6 +132,8 @@ public class MatchService {
             complete(match, leg, stat.getUser());
         }
         advanceRevision(match);
+        // Persist a newly created next leg before exposing its generated ID to the client.
+        matches.saveAndFlush(match);
         return response(match, actor);
     }
 
@@ -177,11 +171,44 @@ public class MatchService {
         leg.setWinner(winner);
         leg.setStatus(MatchStatus.COMPLETED);
         leg.setFinishedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
-        // Single-leg progression. Future formats create another leg instead of ending the match.
-        match.setWinner(winner);
-        match.setStatus(MatchStatus.COMPLETED);
-        match.setFinishedAt(leg.getFinishedAt());
-        statistics.completeSingleLegMatch(leg, startingPoints(match.getGametype().getGametype()));
+        boolean matchCompleted = legsWon(match, winner) >= match.getLegsToWin();
+        if (matchCompleted) {
+            match.setWinner(winner);
+            match.setStatus(MatchStatus.COMPLETED);
+            match.setFinishedAt(leg.getFinishedAt());
+        }
+        statistics.completeLeg(leg,
+                startingPoints(match.getGametype().getGametype()), matchCompleted);
+        if (!matchCompleted) {
+            createLeg(match);
+        }
+    }
+
+    private long legsWon(final Match match, final User user) {
+        return match.getLegs().stream().filter(l -> l.getStatus() == MatchStatus.COMPLETED
+                && l.getWinner().getUserId() == user.getUserId()).count();
+    }
+
+    private void createLeg(final Match match) {
+        Leg leg = new Leg();
+        leg.setMatch(match);
+        leg.setLegNumber(match.getLegs().size() + 1);
+        if (match.getStatus() == MatchStatus.IN_PROGRESS) {
+            leg.setStatus(MatchStatus.IN_PROGRESS);
+            leg.setStartedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
+        }
+        List<MatchParticipant> participants = match.getParticipants();
+        int offset = (leg.getLegNumber() - 1) % participants.size();
+        for (int position = 0; position < participants.size(); position++) {
+            var participant = participants.get((position + offset) % participants.size());
+            LegPlayerStat stat = new LegPlayerStat();
+            stat.setLeg(leg);
+            stat.setUser(participant.getUser());
+            stat.setPosition(position);
+            stat.setPoints(startingPoints(match.getGametype().getGametype()));
+            leg.getPlayerStats().add(stat);
+        }
+        match.getLegs().add(leg);
     }
 
     private Match locked(final long id) {
@@ -242,25 +269,29 @@ public class MatchService {
         boolean manager = match.getOwner().getUserName().equals(actor) || admin(actor);
         boolean pending = match.getStatus() == MatchStatus.PENDING;
         boolean playing = match.getStatus() == MatchStatus.IN_PROGRESS;
-        var players = leg.getPlayerStats().stream()
-                .sorted(Comparator.comparingInt(LegPlayerStat::getPosition))
-                .map(s -> new MatchResponse.Player(s.getUser().getUserName(), s.getPosition(),
-                        s.getPoints(), s.getTurn(), s.getBullseyes(), s.getTriple20s(),
-                        s.getHighestScore(), s.getHighestCheckout(), s.getCheckoutAccuracy(),
-                        match.getLegs().stream().filter(l -> l.getWinner() != null
-                                && l.getWinner().getUserId() == s.getUser().getUserId()).count()))
-                .toList();
-        var legs = match.getLegs().stream().map(l -> new MatchResponse.LegSummary(l.getLegId(),
-                l.getLegNumber(), l.getStatus(), username(l.getWinner()))).toList();
+        var players = players(match, leg);
+        var legs = match.getLegs().stream().map(l -> new MatchResponse.LegSummary(
+                l.getLegId(), l.getLegNumber(), l.getStatus(), username(l.getWinner()),
+                players(match, l))).toList();
         return new MatchResponse(match.getMatchId(), match.getOwner().getUserName(),
                 match.getGametype().getGametype(),
                 startingPoints(match.getGametype().getGametype()), match.getStatus(),
                 match.getCreatedAt(), match.getStartedAt(), match.getFinishedAt(),
                 username(match.getWinner()),
                 pending || playing ? username(next(leg).getUser()) : null,
-                match.getRevision(), leg.getLegId(), "SINGLE_LEG", players, legs,
+                match.getRevision(), leg.getLegId(),
+                match.getLegsToWin() == 1 ? "SINGLE_LEG" : "FIRST_TO_LEGS", players, legs,
                 new MatchResponse.Permissions(member && pending, member && playing,
-                        manager && pending, manager && playing));
+                        manager && pending, manager && playing), match.getLegsToWin());
+    }
+
+    private List<MatchResponse.Player> players(final Match match, final Leg leg) {
+        return leg.getPlayerStats().stream()
+                .sorted(Comparator.comparingInt(LegPlayerStat::getPosition))
+                .map(s -> new MatchResponse.Player(s.getUser().getUserName(), s.getPosition(),
+                        s.getPoints(), s.getTurn(), s.getBullseyes(), s.getTriple20s(),
+                        s.getHighestScore(), s.getHighestCheckout(), s.getCheckoutAccuracy(),
+                        legsWon(match, s.getUser()))).toList();
     }
 
     private String username(final User user) {

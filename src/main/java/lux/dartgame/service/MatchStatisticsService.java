@@ -20,8 +20,8 @@ public class MatchStatisticsService {
         entities = entitiesParam;
     }
 
-    // Called once inside the locked match-completion transaction. Abandoned legs are excluded.
-    public void completeSingleLegMatch(final Leg leg, final int startingPoints) {
+    // Each completed leg counts once; only the deciding leg awards match participation/wins.
+    public void completeLeg(final Leg leg, final int startingPoints, final boolean matchCompleted) {
         for (LegPlayerStat stat : leg.getPlayerStats().stream()
                 .sorted(Comparator.comparingLong(s -> s.getUser().getUserId())).toList()) {
             User user = users.findForUpdate(stat.getUser().getUserId()).orElseThrow();
@@ -42,10 +42,14 @@ public class MatchStatisticsService {
             total.setAvgCheckoutAccuracy((total.getAvgCheckoutAccuracy() * (played - 1)
                     + stat.getCheckoutAccuracy()) / played);
             total.setPlayedLegs(played);
-            total.setPlayedMatches(total.getPlayedMatches() + 1);
+            if (matchCompleted) {
+                total.setPlayedMatches(total.getPlayedMatches() + 1);
+            }
             if (leg.getWinner().getUserId() == user.getUserId()) {
                 total.setWonLegs(total.getWonLegs() + 1);
-                total.setWonMatches(total.getWonMatches() + 1);
+                if (matchCompleted) {
+                    total.setWonMatches(total.getWonMatches() + 1);
+                }
             }
             total.setTriple20s(total.getTriple20s() + stat.getTriple20s());
             total.setBullseyes(total.getBullseyes() + stat.getBullseyes());

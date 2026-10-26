@@ -83,11 +83,12 @@ export function startGame({ gameId }) {
   return request(`/api/games/${gameId}/start`, { method: 'POST' });
 }
 
-export function createGame({ gametype, players = [] }) {
+export function createGame({ gametype, players = [], legsToWin = 1 }) {
   return request('/api/games', {
     method: 'POST',
     body: {
       gametype,
+      legsToWin,
       players: players.map((username) => ({ username })),
     },
   });
