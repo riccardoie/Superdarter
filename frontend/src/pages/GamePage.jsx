@@ -177,7 +177,11 @@ export default function GamePage() {
           </div>
           <div className="game-stats-section">
             <h2>Game stats</h2>
-            <GameStatsTable players={game.players} winner={game.winner} />
+            <GameStatsTable
+              players={game.players}
+              winner={game.winner}
+              startingPoints={game.startingPoints}
+            />
           </div>
         </>
       ) : (

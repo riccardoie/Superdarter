@@ -116,7 +116,7 @@ class GameFlowIT extends AbstractIT {
         Integer points = jdbc().queryForObject(
                 "SELECT points FROM gamestats WHERE user_id = ? AND game_id = ?",
                 Integer.class, userId(ALICE), gameId);
-        assertThat(points).isEqualTo(60);
+        assertThat(points).isEqualTo(241);
 
         Integer turns = jdbc().queryForObject(
                 "SELECT turn FROM gamestats WHERE user_id = ? AND game_id = ?",
@@ -134,7 +134,9 @@ class GameFlowIT extends AbstractIT {
                 new HttpEntity<>(bearer(token)), List.class);
         assertThat(stats.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(stats.getBody()).hasSize(2);
-        assertThat(stats.getBody().get(0).toString()).contains("userName=" + ALICE);
+        assertThat(stats.getBody().get(0).toString())
+                .contains("userName=" + ALICE)
+                .contains("startingPoints=301");
     }
 
     @Test
@@ -146,11 +148,11 @@ class GameFlowIT extends AbstractIT {
         long gameId = started.gameId();
         assertThat(started.turn()).isEqualTo(ALICE);
 
-        // 5 x triple twenty = 300, then a single 1 finishes on exactly 301.
+        // 5 x triple twenty leaves 1, then a single 1 finishes on zero.
         for (final String score : List.of("20 3", "20 3", "20 3", "20 3", "20 3")) {
             playRound(token, session.id(), gameId, ALICE, score);
         }
-        assertThat(pointsIn(gameId, ALICE)).isEqualTo(300);
+        assertThat(pointsIn(gameId, ALICE)).isEqualTo(1);
 
         GameResponse finalRound = playRound(token, session.id(), gameId, ALICE, "1 1");
         assertThat(finalRound.isFinished()).isTrue();
@@ -159,7 +161,7 @@ class GameFlowIT extends AbstractIT {
         assertThat(jdbc().queryForObject(
                 "SELECT winner_id FROM games WHERE game_id = ?", Long.class, gameId))
                 .isEqualTo(userId(ALICE));
-        assertThat(pointsIn(gameId, ALICE)).isEqualTo(301);
+        assertThat(pointsIn(gameId, ALICE)).isZero();
 
         // Finishing the game rolled the GameStat rows into the PlayerStat row.
         assertThat(playedGames(ALICE)).isEqualTo(1);
@@ -186,18 +188,18 @@ class GameFlowIT extends AbstractIT {
         long gameId = startGame(token, session.id(), TARGET_301).gameId();
 
         playRound(token, session.id(), gameId, ALICE, "20 3");
-        assertThat(pointsIn(gameId, ALICE)).isEqualTo(60);
+        assertThat(pointsIn(gameId, ALICE)).isEqualTo(241);
 
         for (int round = 0; round < 4; round++) {
             playRound(token, session.id(), gameId, ALICE, "20 3");
         }
-        assertThat(pointsIn(gameId, ALICE)).isEqualTo(300);
+        assertThat(pointsIn(gameId, ALICE)).isEqualTo(1);
 
-        // 300 + 20 overshoots 301, so the round scores nothing.
+        // Subtracting 20 from 1 would go below zero, so the round scores nothing.
         playRound(token, session.id(), gameId, ALICE, "20 1");
 
-        // Bust: points stay at 300 and no winner is recorded.
-        assertThat(pointsIn(gameId, ALICE)).isEqualTo(300);
+        // Bust: points stay at 1 and no winner is recorded.
+        assertThat(pointsIn(gameId, ALICE)).isEqualTo(1);
         assertThat(jdbc().queryForObject(
                 "SELECT winner_id FROM games WHERE game_id = ?", Long.class, gameId))
                 .isNull();

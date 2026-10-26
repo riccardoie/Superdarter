@@ -57,14 +57,14 @@ public class GameService {
     }
 
     // Given a list of games, it filters out games with a winner.
-    // Additionally, it filters out games with no points.
+    // Prefer games where a player has already taken a turn.
     // It returns the game id of the first game that matches the criteria.
     // If no game matches the criteria, it returns the first game with no winner.
     // If no game matches any of the criteria above, it returns null.
     private Game getAvailableGame(final List<Game> games) {
         return games.stream()
                 .filter(game -> game.getWinner() == null
-                        && game.getGameStats().stream().anyMatch(stat -> stat.getPoints() > 0))
+                        && game.getGameStats().stream().anyMatch(stat -> stat.getTurn() > 0))
                 .findFirst()
                 .orElseGet(() -> games.stream()
                         .filter(game -> game.getWinner() == null)
@@ -72,13 +72,13 @@ public class GameService {
                         .orElseThrow(NoAvailableGameException::new));
     }
 
-    // Same as getAvailableGame with the exception that it filters out games with points.
+    // Find a game where no player has taken a turn yet.
     private Game getUnstartedGames(final List<Game> games) {
         return games.stream()
                 .filter(game -> game.getWinner() == null
                         && game.getGameStats().stream()
                                 .noneMatch(stat ->
-                                                stat.getPoints() > 0))
+                                                stat.getTurn() > 0))
                 .findFirst()
                 .orElseThrow(NoAvailableGameException::new);
     }
@@ -287,11 +287,11 @@ public class GameService {
         log.info("Playing game: {}, current points: {}, result: {}", game,
                                                                      stat.getPoints(),
                                                                      result);
-        if (stat.getPoints() + result < game) {
-            stat.setPoints(stat.getPoints() + result);
+        if (stat.getPoints() - result > 0) {
+            stat.setPoints(stat.getPoints() - result);
             return false;
-        } else if (stat.getPoints() + result == game) { // exactly game = win
-            stat.setPoints(game);
+        } else if (stat.getPoints() - result == 0) { // exactly game = win
+            stat.setPoints(0);
             return true;
         }
         // Player bust
@@ -305,6 +305,7 @@ public class GameService {
         Game game = gameRepository.findById(gameId).orElseThrow(() ->
                                             new GameNotFoundException(gameId));
         List<GameStat> gameStats = game.getGameStats();
+        int startingPoints = Integer.parseInt(game.getGametype().getGametype());
 
         return players.<List<GameStatResponse>>map(strings -> gameStats.stream()
                 .filter(stat -> strings.contains(stat.getUser().getUserName()))
@@ -316,7 +317,8 @@ public class GameService {
                                                  stat.getTriple20s(),
                                                  stat.getHighestScore(),
                                                  stat.getHighestCheckout(),
-                                                 stat.getCheckoutAccuracy()))
+                                                 stat.getCheckoutAccuracy(),
+                                                 startingPoints))
                 .collect(Collectors.toList()))
                 .orElseGet(() -> gameStats.stream()
                         .sorted(Comparator.comparingInt(GameStat::getPosition))
@@ -327,7 +329,8 @@ public class GameService {
                                                            stat.getTriple20s(),
                                                            stat.getHighestScore(),
                                                            stat.getHighestCheckout(),
-                                                           stat.getCheckoutAccuracy()))
+                                                            stat.getCheckoutAccuracy(),
+                                                            startingPoints))
                         .collect(Collectors.toList()));
 
     }
@@ -362,6 +365,13 @@ public class GameService {
     private void updatePlayerStats(final Game game) {
         User winner = game.getWinner();
 
+        int startingPoints = switch (game.getGametype().getGametype()) {
+            case Constants.GAMETYPE_301 -> Constants.TARGET_301;
+            case Constants.GAMETYPE_501 -> Constants.TARGET_501;
+            default -> throw new GameModeNotFoundException(
+                    game.getGametype().getGametype());
+        };
+
         for (GameStat stat : game.getGameStats()) {
             User player = stat.getUser();
             PlayerStat playerStats = player.getStats();
@@ -385,9 +395,14 @@ public class GameService {
             playerStats.setHighestCheckout(Math.max(playerStats.getHighestCheckout(),
                     stat.getHighestCheckout()));
 
+            int scoredPoints = startingPoints - stat.getPoints();
+            float gameAverage = stat.getTurn() > 0
+                    ? (float) scoredPoints / stat.getTurn()
+                    : 0f;
+
             // Running average over games played
-            playerStats.setAvgPoints((playerStats.getAvgPoints() * (played - 1)
-                    + (float) stat.getPoints() / stat.getTurn()) / played);
+            playerStats.setAvgPoints(
+                    (playerStats.getAvgPoints() * (played - 1) + gameAverage) / played);
             playerStats.setAvgCheckoutAccuracy((playerStats.getAvgCheckoutAccuracy() * (played - 1)
                     + stat.getCheckoutAccuracy()) / played);
         }
