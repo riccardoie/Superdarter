@@ -60,11 +60,9 @@ export function login({ username, password }) {
   });
 }
 
-export function getSessions({ gamemode } = {}) {
-  const token = localStorage.getItem('token');
-  const username = getUsername(token);
-  const gamemodeQuery = gamemode ? `&gameRequest=${encodeURIComponent(gamemode)}` : '';
-  return request(`/api/session?username=${encodeURIComponent(username)}${gamemodeQuery}`);
+export function getGames({ gamemode } = {}) {
+  const query = gamemode ? `?gametype=${encodeURIComponent(gamemode)}` : '';
+  return request(`/api/games${query}`);
 }
 
 export function getAllGamemodes() {
@@ -81,127 +79,40 @@ export function getPlayerStats() {
   });
 }
 
-export function getSessionById(id) {
-  return request(`/api/session/${id}`);
+export function startGame({ gameId }) {
+  return request(`/api/games/${gameId}/start`, { method: 'POST' });
 }
 
-// Latest real GameResponse per game (turn/isFinished/gametype), written ONLY from
-// real backend responses (startGame/playRound). Resets on page reload.
-const gameResponses = {};
-
-export async function startGame({ sessionId, gameType }) {
-  const res = await request(`/api/session/${sessionId}/games?gametype=${gameType}`);
-  gameResponses[res.gameId] = res;
-  return res;
-}
-
-export async function createSession({ gamemodes, players = [] }) {
-  return request('/api/session', {
+export function createGame({ gametype, players = [] }) {
+  return request('/api/games', {
     method: 'POST',
     body: {
-      games: gamemodes.map((gamemode) => ({ gameType: gamemode })),
+      gametype,
       players: players.map((username) => ({ username })),
     },
   });
 }
 
-// Requires being owner and session not finished Body is an array
-// of GameRequests. Returns the FULL updated SessionResponse
-export async function addGamesToSession({ sessionId, gamemodes }) {
-  return request(`/api/session/${sessionId}`, {
-    method: 'POST',
-    body: gamemodes.map((gameType) => ({ gameType })),
-  });
+export function abandonGame({ gameId }) {
+  return request(`/api/games/${gameId}/abandon`, { method: 'POST' });
 }
 
-// Finish a session. Owner-only (403), 404 if unknown, 200 with an EMPTY body.
-export function finishSession({ sessionId }) {
-  return request(`/api/session/${sessionId}`, { method: 'PUT' });
-}
-
-// Delete a session permanently. Owner-only while the session is active (403),
-// 404 if unknown, 204 with an EMPTY body. Cascades to its games and stats.
-export function deleteSession({ sessionId }) {
-  return request(`/api/session/${sessionId}`, { method: 'DELETE' });
-}
-
-// Delete the next UNSTARTED game of `gamemode` from a session
-// the backend picks the first unstarted game of that type
-// 404 if no unstarted game of that type is left.
-export function deleteGame({ sessionId, gamemode }) {
-  return request(
-    `/api/session/${sessionId}/games?gametype=${encodeURIComponent(gamemode)}`,
-    { method: 'DELETE' }
-  );
+export function deleteGame({ gameId }) {
+  return request(`/api/games/${gameId}`, { method: 'DELETE' });
 }
 
 export const MAX_TOTAL_PLAYERS = 10;
 
-export async function getFinishedGames({ sessionId }) {
-  return request(`/api/session/${sessionId}/finished-games`);
+// A single authoritative response works equally during play and after a browser reload.
+export function getGameState({ gameId }) {
+  return request(`/api/games/${gameId}`);
 }
 
-function mapStats(stats) {
-  return stats.map((s) => ({
-    username: s.userName,
-    points: s.points,
-    turns: s.turns,
-    bullseyes: s.bullseyes,
-    triple20s: s.triple20s,
-    highestScore: s.highestScore,
-    highestCheckout: s.highestCheckout,
-    checkoutAccuracy: s.checkoutAccuracy,
-  }));
-}
-
-// Fetch current game state: per-player stats from the real stats endpoint;
-// turn/isFinished/gametype from the most recent real GameResponse while
-// playing, or from the session's finished-games list after a reload.
-export async function getGameState({ sessionId, gameId }) {
-  const id = Number(gameId);
-  const stats = await request(`/api/session/${sessionId}/games/${id}/stats`);
-  const meta = gameResponses[id] ?? {};
-
-  if (meta.turn) {
-    // Live path (played in this page session): GameResponse cache is warm.
-    return {
-      gameId: id,
-      gametype: meta.gametype,
-      startingPoints: stats[0]?.startingPoints,
-      isFinished: Boolean(meta.isFinished),
-      winner: meta.isFinished ? meta.turn : null,
-      turn: meta.turn,
-      players: mapStats(stats),
-    };
-  }
-
-  // Reload path: no cached GameResponse — derive finished/winner from the
-  // session's finished-games list; turn = winner (finished) or the player
-  // with the fewest turns (in-progress, best-effort).
-  const finished = await getFinishedGames({ sessionId });
-  const finishedGame = finished.find((f) => Number(f.gameId) === id);
-  const minTurns = Math.min(...stats.map((s) => s.turns));
-  const turn = stats.find((s) => s.turns === minTurns)?.userName;
-  return {
-    gameId: id,
-    gametype: finishedGame?.gametype ?? meta.gametype,
-    startingPoints: stats[0]?.startingPoints,
-    isFinished: Boolean(finishedGame),
-    winner: finishedGame?.winner ?? null,
-    turn: finishedGame?.winner ?? turn,
-    players: mapStats(stats),
-  };
-}
-
-// Submit a round of 3 darts — REAL backend call. The response carries the next
-// turn / finished state; the scoreboard is refreshed via getGameState after.
-export async function playRound({ sessionId, gameId, username, score }) {
-  const res = await request(`/api/session/${sessionId}/games`, {
-    method: 'PUT',
-    body: { username, score, gameId },
+export function playRound({ gameId, username, score, legId, revision }) {
+  return request(`/api/games/${gameId}/rounds`, {
+    method: 'POST',
+    body: { username, score, legId, revision },
   });
-  gameResponses[res.gameId] = res;
-  return res;
 }
 
 export function getUsername(token) {

@@ -9,18 +9,19 @@ export default function ConfirmDialog({
   onCancel,
 }) {
   return (
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay" onClick={busy ? undefined : onCancel}>
       <div
         className="modal"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2>{title}</h2>
+        <h2 id="confirm-dialog-title">{title}</h2>
         <p>{body}</p>
         {error && <p className="error-message">{error}</p>}
         <div className="modal-actions">
-          <button className="btn" type="button" onClick={onCancel}>
+          <button className="btn" type="button" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
           <button
