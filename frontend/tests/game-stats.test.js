@@ -4,6 +4,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 import { MemoryRouter } from 'react-router-dom';
+import { matchFormatLabel, standingsInStartingOrder } from '../src/matchFormat.js';
 
 let server;
 let api;
@@ -11,6 +12,10 @@ let GameStatsTable;
 let CheckoutSuggestion;
 let GameCard;
 let CreateGame;
+let MatchProgress;
+let LegTargetPicker;
+let GameScoreboard;
+let CompletedLegs;
 const originalFetch = globalThis.fetch;
 const originalLocalStorage = globalThis.localStorage;
 
@@ -21,6 +26,10 @@ before(async () => {
   ({ default: CheckoutSuggestion } = await server.ssrLoadModule('/src/components/CheckoutSuggestion.jsx'));
   ({ default: GameCard } = await server.ssrLoadModule('/src/components/GameCard.jsx'));
   ({ default: CreateGame } = await server.ssrLoadModule('/src/components/CreateGame.jsx'));
+  ({ default: MatchProgress } = await server.ssrLoadModule('/src/components/MatchProgress.jsx'));
+  ({ default: LegTargetPicker } = await server.ssrLoadModule('/src/components/LegTargetPicker.jsx'));
+  ({ default: GameScoreboard } = await server.ssrLoadModule('/src/components/GameScoreboard.jsx'));
+  ({ default: CompletedLegs } = await server.ssrLoadModule('/src/components/CompletedLegs.jsx'));
   globalThis.localStorage = { getItem: () => null };
 });
 
@@ -82,7 +91,7 @@ test('create, list and round commands use the standalone game contract', async (
     ['/api/games/7/start', 'POST'], ['/api/games/7/rounds', 'POST'],
     ['/api/games/7/abandon', 'POST'], ['/api/games/7', 'DELETE'],
   ]);
-  assert.deepEqual(calls[0].body, { gametype: '501', players: [{ username: 'bob' }] });
+  assert.deepEqual(calls[0].body, { gametype: '501', players: [{ username: 'bob' }], legsToWin: 1 });
   assert.deepEqual(calls[3].body, { username: 'alice', score: '', legId: 9, revision: 1 });
 });
 
@@ -130,8 +139,106 @@ test('creation form automatically includes the owner in the ten-player limit', (
   assert.match(html, /Create game/);
   assert.match(html, /alice \(you\)/);
   assert.match(html, /1 \/ 10/);
+  assert.match(html, /First to win/);
+  assert.match(html, /type="number" min="1" max="99" step="1" required=""/);
   assert.doesNotMatch(html, /session/i);
   globalThis.localStorage = { getItem: () => null };
+});
+
+test('first-to creation sends the selected win target', async () => {
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/games');
+    assert.deepEqual(JSON.parse(options.body), { gametype: '301', players: [], legsToWin: 3 });
+    return new Response(JSON.stringify({ gameId: 7, legsToWin: 3, format: 'FIRST_TO_LEGS' }));
+  };
+  const game = await api.createGame({ gametype: '301', legsToWin: 3 });
+  assert.equal(game.legsToWin, 3);
+  assert.equal(matchFormatLabel(game.legsToWin), 'First to 3 legs');
+  assert.equal(matchFormatLabel(1), 'Single leg');
+});
+
+test('leg target has separate step buttons, increments correctly and respects limits', () => {
+  let value;
+  const picker = LegTargetPicker({ value: '3', onChange: (next) => { value = next; } });
+  const [decrease, , increase] = picker.props.children[1].props.children;
+  decrease.props.onClick();
+  assert.equal(value, '2');
+  increase.props.onClick();
+  assert.equal(value, '4');
+  for (const [count, lowerDisabled, upperDisabled] of [['1', true, false], ['99', false, true]]) {
+    const tree = LegTargetPicker({ value: count, onChange() {} });
+    const [lower, input, upper] = tree.props.children[1].props.children;
+    assert.equal(lower.props.disabled, lowerDisabled);
+    assert.equal(upper.props.disabled, upperDisabled);
+    assert.equal(input.type, 'input');
+  }
+  const html = renderToStaticMarkup(createElement(LegTargetPicker, { value: '3', onChange() {} }));
+  assert.ok(html.indexOf('Decrease legs to win') < html.indexOf('<input'));
+  assert.ok(html.indexOf('Increase legs to win') > html.indexOf('<input'));
+});
+
+test('leg standings retain original order as starting players rotate', () => {
+  const original = ['alice', 'bob', 'carol'].map((username) => ({ username, legsWon: 0 }));
+  for (let offset = 0; offset < original.length; offset++) {
+    const players = [...original.slice(offset), ...original.slice(0, offset)]
+      .map((player) => ({ ...player, legsWon: player.username === 'alice' ? 2 : 1 }));
+    const game = { legsToWin: 3, startingPoints: 501, gametype: '501', currentLegId: 10 + offset,
+      players, legs: [{ legId: 10, number: 1, status: 'IN_PROGRESS', players: original }] };
+    const ordered = standingsInStartingOrder(game);
+    assert.deepEqual(ordered.map((player) => player.username), ['alice', 'bob', 'carol']);
+    assert.equal(ordered[0].legsWon, 2);
+    assert.equal(game.players[0].username, original[offset].username);
+    const html = renderToStaticMarkup(createElement(GameScoreboard, { game, slots: [] }));
+    assert.ok(html.indexOf('title="alice"') < html.indexOf('title="bob"'));
+    assert.ok(html.indexOf('title="bob"') < html.indexOf('title="carol"'));
+  }
+});
+
+test('multi-leg standings and completed leg stats survive reload', async () => {
+  const players = [{ username: 'alice', points: 301, turns: 0, legsWon: 1 },
+    { username: 'bob', points: 301, turns: 0, legsWon: 0 }];
+  const body = { gameId: 7, legsToWin: 2, gametype: '301', startingPoints: 301,
+    status: 'IN_PROGRESS', currentLegId: 12, turn: 'bob', players,
+    legs: [{ legId: 11, number: 1, status: 'COMPLETED', winner: 'alice',
+      players: [{ ...players[0], points: 0, turns: 6 }, { ...players[1], points: 121, turns: 5 }] },
+    { legId: 12, number: 2, status: 'IN_PROGRESS', winner: null, players }] };
+  globalThis.fetch = async () => new Response(JSON.stringify(body));
+  const game = await api.getGameState({ gameId: 7 });
+  assert.equal(game.currentLegId, 12);
+  assert.equal(game.turn, 'bob');
+  const html = renderToStaticMarkup(createElement(MatchProgress, { game }));
+  assert.match(html, /First to 2 legs/);
+  assert.match(html, /Leg 2 · 301/);
+  assert.doesNotMatch(html, /Completed legs|match-standings/);
+  const scoreboard = renderToStaticMarkup(createElement(GameScoreboard, { game, slots: [] }));
+  assert.match(scoreboard, /game-scoreboard-stats"><span class="game-scoreboard-leg-wins">Legs: 1 \/ 2<\/span><span class="game-scoreboard-turns">Turns: 0/);
+  assert.match(scoreboard, /<span class="game-scoreboard-checkout"><\/span><span class="game-scoreboard-points" aria-label="Remaining points: 301">301<\/span>/);
+  const history = renderToStaticMarkup(createElement(CompletedLegs, { game }));
+  assert.match(history, /<button type="button" class="btn" aria-expanded="false"/);
+  assert.match(history, /Completed legs \(1\)/);
+  assert.match(history, /id="completed-legs-panel" hidden=""/);
+  assert.match(history, /Leg 1 — alice wins/);
+  assert.match(history, /data-label="Average">50\.2/);
+  assert.doesNotMatch(history, /NaN/);
+  const card = renderToStaticMarkup(createElement(MemoryRouter, null,
+    createElement(GameCard, { game: { ...game, createdAt: '2026-10-26T12:00:00Z' } })));
+  assert.match(card, /First to 2 legs/);
+  assert.match(card, /alice: 1 · bob: 0/);
+  assert.equal(renderToStaticMarkup(createElement(MatchProgress, { game: { legsToWin: 1 } })), '');
+});
+
+test('scoreboard reserves checkout space and always puts remaining points last', () => {
+  const game = { legsToWin: 3, startingPoints: 501, turn: 'alice',
+    players: [{ username: 'alice', points: 100, turns: 5, legsWon: 1 },
+      { username: 'bob', points: 501, turns: 4, legsWon: 0 }], legs: [] };
+  const html = renderToStaticMarkup(createElement(GameScoreboard, { game, slots: [] }));
+  assert.equal([...html.matchAll(/class="game-scoreboard-checkout"/g)].length, 2);
+  assert.match(html, /t20 → d20/);
+  assert.match(html, /game-scoreboard-checkout"><\/span>/);
+  const stats = html.slice(html.indexOf('game-scoreboard-stats'));
+  assert.ok(stats.indexOf('game-scoreboard-leg-wins') < stats.indexOf('game-scoreboard-turns'));
+  assert.ok(stats.indexOf('game-scoreboard-turns') < stats.indexOf('game-scoreboard-checkout'));
+  assert.ok(stats.indexOf('game-scoreboard-checkout') < stats.indexOf('game-scoreboard-points'));
 });
 
 test('checkout suggestion renders compact routes and hides unavailable checkouts', () => {

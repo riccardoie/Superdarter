@@ -4,8 +4,11 @@ import { abandonGame, deleteGame, getGameState, playRound, startGame } from '../
 import DartboardInput from '../components/DartboardInput';
 import { canSubmitRound, serializeRound, undoLastDart } from '../dartRound';
 import GameStatsTable from '../components/GameStatsTable';
-import CheckoutSuggestion from '../components/CheckoutSuggestion';
+import GameScoreboard from '../components/GameScoreboard';
 import ConfirmDialog from '../components/ConfirmDialog';
+import MatchProgress from '../components/MatchProgress';
+import CompletedLegs from '../components/CompletedLegs';
+import { matchFormatLabel } from '../matchFormat';
 
 // Array of all numbers from 1-20+25
 const DART_VALUES = Array.from({ length: 20 }, (_, i) => i + 1).concat(25);
@@ -29,6 +32,7 @@ export default function GamePage() {
   const [inputMode, setInputMode] = useState('board');
   const [activeDart, setActiveDart] = useState(0);
   const [managementAction, setManagementAction] = useState(null);
+  const [legNotice, setLegNotice] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +42,7 @@ export default function GamePage() {
     setActiveDart(0);
     setManagementAction(null);
     setActionError('');
+    setLegNotice('');
     getGameState({ gameId })
       .then((data) => {
         if (!cancelled) setGame(data);
@@ -124,6 +129,12 @@ export default function GamePage() {
         legId: game.currentLegId,
         revision: game.revision,
       });
+      if (fresh.currentLegId !== game.currentLegId) {
+        const completed = fresh.legs.find((leg) => leg.legId === game.currentLegId);
+        setLegNotice(`${completed.winner} wins leg ${completed.number}. The next leg is ready.`);
+      } else {
+        setLegNotice('');
+      }
       setGame(fresh);
       setSlots(emptySlots());
       setActiveDart(0);
@@ -133,6 +144,7 @@ export default function GamePage() {
           setGame(await getGameState({ gameId }));
           setSlots(emptySlots());
           setActiveDart(0);
+          setLegNotice('');
           setActionError('Game state changed. Check the current player and enter the round again.');
         } catch (reloadError) {
           setActionError(`Unable to reload game: ${reloadError.message}`);
@@ -193,7 +205,7 @@ export default function GamePage() {
         <Link className="btn game-back-link" to="/games">
           &larr; Back to Games
         </Link>
-        <span className="game-format-label">{game.gametype} · Single leg · Double-out</span>
+        <span className="game-format-label">{game.gametype} · {matchFormatLabel(game.legsToWin)} · Double-out</span>
         {(game.permissions.canDelete || game.permissions.canAbandon) && (
           <button className="btn game-manage-button" type="button" disabled={submitting}
             onClick={() => { setActionError(''); setManagementAction(game.permissions.canDelete ? 'delete' : 'abandon'); }}>
@@ -203,46 +215,20 @@ export default function GamePage() {
       </div>
 
       {actionError && !managementAction && <p className="error-message" role="alert">{actionError}</p>}
+      {legNotice && !finished && <p className="game-leg-notice" role="status">{legNotice}</p>}
+      <MatchProgress game={game} />
 
-      {!finished && (
-        <>
-          <h2>Scoreboard</h2>
-          <div className="game-scoreboard">
-            {game.players.map((player) => (
-              <div
-                key={player.username}
-                className={`game-scoreboard-row${
-                  player.username === game.turn ? ' game-scoreboard-turn' : ''
-                }`}
-              >
-                <span>{player.username}</span>
-                <span className="game-scoreboard-stats">
-                  {player.points}{' '}
-                  <span className="game-scoreboard-turns">
-                    Turns: {player.turns}
-                  </span>
-                  {[301, 501].includes(game.startingPoints) && (
-                    <CheckoutSuggestion
-                      points={player.points}
-                      slots={player.username === activePlayer ? slots : []}
-                    />
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {!finished && <GameScoreboard game={game} slots={slots} />}
 
       {finished ? (
         <>
           <div className="game-winner">
             <p className="game-result-label">{game.status === 'ABANDONED' ? 'Game abandoned' : 'Game complete'}</p>
             <h2>{game.winner || 'No winner'}</h2>
-            <p className="game-result-summary">{game.winner ? 'Takes the win' : 'History saved. This leg does not count towards player totals.'}</p>
+            <p className="game-result-summary">{game.winner ? 'Takes the win' : 'History saved. Completed legs count towards player totals; the unfinished leg does not.'}</p>
           </div>
           <div className="game-stats-section">
-            <h2>Game stats</h2>
+            <h2>{game.legsToWin > 1 ? 'Final leg stats' : 'Game stats'}</h2>
             <GameStatsTable
               players={game.players}
               winner={game.winner}
@@ -262,7 +248,6 @@ export default function GamePage() {
         </div>
       ) : game.permissions.canScore ? (
         <div className="game-round-panel">
-          <div className="game-turn-banner">Next up: {activePlayer}</div>
           <div
             className="game-input-mode"
             role="group"
@@ -378,12 +363,13 @@ export default function GamePage() {
           </p>
         </div>
       ) : <p className="state-message">This game is in progress. Only participants can score.</p>}
+      <CompletedLegs game={game} />
       {managementAction && (
         <ConfirmDialog
           title={managementAction === 'delete' ? 'Delete this game?' : 'Abandon this game?'}
           body={managementAction === 'delete'
             ? 'This permanently deletes the pending game. No played history is removed.'
-            : 'The game will end without a winner. Scores are preserved, but the unfinished leg will not count towards player totals.'}
+            : 'The game will end without an overall winner. Completed leg results and statistics are kept; the unfinished leg will not count towards player totals.'}
           confirmLabel={managementAction === 'delete' ? 'Delete game' : 'Abandon game'}
           busyLabel="Saving…"
           busy={submitting}

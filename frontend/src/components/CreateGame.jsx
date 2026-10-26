@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createGame, getAllGamemodes, getUsername, MAX_TOTAL_PLAYERS } from '../api';
+import LegTargetPicker from './LegTargetPicker';
 
 const MAX_ADDED_PLAYERS = MAX_TOTAL_PLAYERS - 1;
 
 export default function CreateGame({ onClose, onCreated }) {
   const [available, setAvailable] = useState(null);
   const [gametype, setGametype] = useState('501');
+  const [legsToWin, setLegsToWin] = useState('1');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -51,10 +53,11 @@ export default function CreateGame({ onClose, onCreated }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (submitting) return;
     setSubmitting(true);
     setError('');
     try {
-      const game = await createGame({ gametype, players });
+      const game = await createGame({ gametype, players, legsToWin: Number(legsToWin) });
       onCreated(game);
     } catch (err) {
       setError(
@@ -93,9 +96,13 @@ export default function CreateGame({ onClose, onCreated }) {
                   ))}
                 </select>
               </div>
-              <p className="player-hint">Single leg · double-out</p>
+              <p className="player-hint">Double-out on every leg.</p>
             </div>
           )}
+          <LegTargetPicker value={legsToWin} onChange={setLegsToWin} disabled={submitting} />
+          <p className="player-hint" id="legs-to-win-hint">
+            Choose 1 for a single leg, or 2–99 for a first-to-wins game. Starting player rotates each leg.
+          </p>
           <div className="player-picker">
             <div className="player-picker-header">
               <h3>Players</h3>

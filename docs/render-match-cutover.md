@@ -1,5 +1,10 @@
 # Render cutover: sessions to standalone games
 
+**Already running the match-based release?** The first-to feature adds V5, an
+additive `legs_to_win` column defaulting to 1. Existing games and accounts are
+preserved: deploy the new backend and frontend without resetting the database.
+The fresh-database steps below apply only when upgrading from the old session model.
+
 This is a coordinated, breaking frontend/backend release. **Do not simply enable
 automatic deployment against the old database.** Downtime is expected and acceptable.
 The implementation does not change, reset, or provision any deployed resource.

@@ -89,6 +89,25 @@ try {
     $abandoned = Request-Json "/api/games/$($other.gameId)/abandon" 'POST'
     Assert-Smoke ($abandoned.status -eq 'ABANDONED' -and $null -eq $abandoned.winner) `
         'Abandonment incorrectly awarded a winner'
+    $multi = Request-Json '/api/games' 'POST' @{ gametype = '301'; players = @(); legsToWin = 2 }
+    $multiId = $multi.gameId
+    $multi = Request-Json "/api/games/$multiId/start" 'POST'
+    foreach ($legNumber in @(1, 2)) {
+        $previousLeg = $multi.currentLegId
+        foreach ($score in @('20 3 20 3 20 3', '20 3 19 3 2 1', '1 2')) {
+            $multi = Request-Json "/api/games/$multiId/rounds" 'POST' @{
+                username = 'smoke-alice'; score = $score
+                legId = $multi.currentLegId; revision = $multi.revision
+            }
+        }
+        if ($legNumber -eq 1) {
+            Assert-Smoke ($multi.status -eq 'IN_PROGRESS' -and $multi.currentLegId -ne $previousLeg) `
+                'Next leg was not automatically created'
+            Assert-Smoke ($multi.players[0].points -eq 301) 'New leg did not reset the score'
+        }
+    }
+    Assert-Smoke ($multi.status -eq 'COMPLETED' -and $multi.legs.Count -eq 2) `
+        'First-to-two did not finish after two wins'
     Write-Output 'PASS: production image, render profile/PORT, fresh migrations, registration, scoring, reload, totals, deletion and abandonment'
 } catch {
     docker logs --tail 100 $backend 2>&1 | Write-Host
