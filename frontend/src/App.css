@@ -725,7 +725,6 @@
 }
 
 .game-scoreboard-leg-wins {
-  font-size: 0.85rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -786,14 +785,15 @@
 
 .game-scoreboard-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 5rem 4rem minmax(0, 1.7fr) 3.5rem;
-  grid-template-areas: 'name legs turns checkout points';
+  grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1.7fr) 3.5rem;
+  grid-template-areas: 'name average legs turns checkout points';
   align-items: center;
   column-gap: clamp(0.5rem, 2vw, 1.5rem);
   padding: var(--space-4) var(--space-5);
   background: var(--color-surface);
   text-align: left;
   font-variant-numeric: tabular-nums;
+  font-size: 1.4rem;
 }
 
 .game-scoreboard-name {
@@ -813,8 +813,10 @@
 }
 
 .game-scoreboard-average {
-  font-size: 0.8rem;
-  font-weight: 400;
+  grid-area: average;
+  font-size: inherit;
+  font-weight: 500;
+  white-space: nowrap;
   opacity: 0.85;
 }
 
@@ -837,6 +839,7 @@
 .game-scoreboard-checkout .game-checkout-suggestion {
   display: inline-block;
   max-width: 100%;
+  font-size: inherit;
 }
 
 .game-scoreboard-points {
@@ -857,7 +860,7 @@
 
 .game-scoreboard-turns {
   opacity: 0.7;
-  font-size: 0.85rem;
+  font-size: inherit;
 }
 
 .game-round-actions {
@@ -905,12 +908,35 @@
   display: contents;
 }
 
+.game-scoreboard-name,
+.game-scoreboard-average,
+.game-scoreboard-leg-wins,
+.game-scoreboard-turns,
+.game-scoreboard-checkout .game-checkout-suggestion {
+  font-size: 1.4rem;
+  font-weight: 400;
+  opacity: 1;
+}
+
 @media (max-width: 600px) {
   .game-scoreboard-row {
     grid-template-columns: 1fr 1fr minmax(0, 1.5fr) 3rem;
-    grid-template-areas: 'name name name name' 'legs turns checkout points';
+    grid-template-areas: 'name name average average' 'legs turns checkout points';
     gap: var(--space-3) var(--space-2);
     padding: var(--space-3);
+  }
+
+  .game-scoreboard-average {
+    justify-self: end;
+    text-align: right;
+  }
+
+  .game-scoreboard-name,
+  .game-scoreboard-average,
+  .game-scoreboard-leg-wins,
+  .game-scoreboard-turns,
+  .game-scoreboard-checkout .game-checkout-suggestion {
+    font-size: 0.95rem;
   }
 
   .game-scoreboard-checkout {
@@ -920,9 +946,6 @@
     justify-content: center;
   }
 
-  .game-scoreboard-checkout .game-checkout-suggestion {
-    font-size: 0.8rem;
-  }
 }
 
 .game-shared-hint {
@@ -1024,6 +1047,27 @@
   display: block;
   width: 100%;
   height: auto;
+}
+
+.dartboard-miss-ring {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 20;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.dartboard-miss-ring:hover,
+.dartboard-miss-ring:focus-visible {
+  stroke: var(--color-primary);
+}
+
+.dartboard-miss-label {
+  fill: var(--color-text);
+  font-size: 7px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
 }
 
 .dartboard-segment,

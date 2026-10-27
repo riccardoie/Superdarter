@@ -187,8 +187,13 @@ export default function GamePage() {
         await deleteGame({ gameId });
         navigate('/games');
       } else {
-        setGame(await abandonGame({ gameId }));
-        setSlots(emptySlots());
+        const ended = await abandonGame({ gameId });
+        if (ended.legs.some((leg) => leg.status === 'COMPLETED')) {
+          setGame(ended);
+          setSlots(emptySlots());
+        } else {
+          navigate('/games');
+        }
       }
       setManagementAction(null);
     } catch (err) {
@@ -423,7 +428,9 @@ export default function GamePage() {
           body={
             managementAction === 'delete'
               ? 'This permanently deletes the pending game. No played history is removed.'
-              : 'The game will end without an overall winner. Completed leg results and statistics are kept; the unfinished leg will not count towards player totals.'
+              : game.legs.some((leg) => leg.status === 'COMPLETED')
+                ? 'The game will end without an overall winner. Completed leg results and statistics are kept; the unfinished leg will not count towards player totals.'
+                : 'No leg has been completed. This permanently deletes the game and all its scores. No statistics will be kept.'
           }
           confirmLabel={
             managementAction === 'delete' ? 'Delete game' : 'Abandon game'

@@ -141,10 +141,14 @@ class GameFlowIT extends AbstractIT {
                 .isEqualTo(HttpStatus.CONFLICT);
     }
 
-    @Test
-    void abandonmentPreservesHistoryWithoutAwardingStats() {
+    @ParameterizedTest
+    @ValueSource(ints = {1, 3})
+    void abandonmentWithoutCompletedLegDeletesGameWithoutAwardingStats(final int legsToWin) {
         String token = register("alice");
-        MatchResponse game = start(token, create(token, "501", List.of()).gameId());
+        MatchResponse created = rest().postForObject(GAMES_URL,
+                authed(token, new CreateGameRequest("501", List.of(), legsToWin)),
+                MatchResponse.class);
+        MatchResponse game = start(token, created.gameId());
         game = play(token, game, "alice", "20 3");
         var abandoned = rest().postForEntity(GAMES_URL + "/" + game.gameId() + "/abandon",
                 authed(token, null), MatchResponse.class);
@@ -153,10 +157,19 @@ class GameFlowIT extends AbstractIT {
         assertThat(abandoned.getBody().winner()).isNull();
         assertThat(abandoned.getBody().players().getFirst().points()).isEqualTo(441);
         assertThat(round(token, game, "alice", "20 3").getStatusCode())
-                .isEqualTo(HttpStatus.CONFLICT);
+                .isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(rest().exchange(GAMES_URL + "/" + game.gameId(), HttpMethod.GET,
+                new HttpEntity<>(bearer(token)), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(jdbc().queryForObject("SELECT played_matches FROM playerstats", Integer.class))
                 .isZero();
-        assertThat(countRows("legs")).isEqualTo(1);
+        assertThat(jdbc().queryForObject("SELECT played_legs FROM playerstats", Integer.class))
+                .isZero();
+        for (String table : List.of("matches", "match_participants", "legs", "leg_player_stats")) {
+            assertThat(countRows(table)).isZero();
+        }
+        assertThat(countRows("users")).isEqualTo(1);
+        assertThat(countRows("playerstats")).isEqualTo(1);
     }
 
     @Test
@@ -341,6 +354,7 @@ class GameFlowIT extends AbstractIT {
         MatchResponse game = winLeg(token, start(token, created.gameId()), "alice");
         assertThat(game.players().getFirst().legsWon()).isEqualTo(1);
         assertThat(game.players().getFirst().points()).isEqualTo(501);
+        game = play(token, game, "alice", "20 3");
         var ended = rest().postForObject(GAMES_URL + "/" + game.gameId() + "/abandon",
                 authed(token, null), MatchResponse.class);
         assertThat(ended.status()).isEqualTo(MatchStatus.ABANDONED);
@@ -351,6 +365,8 @@ class GameFlowIT extends AbstractIT {
         assertThat(total.get("played_legs")).isEqualTo(1);
         assertThat(total.get("won_matches")).isEqualTo(0);
         assertThat(total.get("played_matches")).isEqualTo(0);
+        assertThat(total.get("triple20s")).isEqualTo(0);
+        assertThat(get(token, game.gameId())).isEqualTo(ended);
     }
 
     @ParameterizedTest

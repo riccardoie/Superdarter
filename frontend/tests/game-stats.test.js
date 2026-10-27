@@ -454,7 +454,8 @@ test('game cards link directly to games and distinguish abandonment from a win',
       )
     );
     assert.match(html, /href="\/games\/7"/);
-    assert.match(html, /alice · bob/);
+    assert.match(html, /alice: 0 · bob: 0/);
+    assert.equal((html.match(/class="match-card-players"/g) ?? []).length, 1);
     assert.match(html, /26 Oct 2026/);
     if (winner) assert.match(html, /Winner: bob/);
     else assert.doesNotMatch(html, /Winner:/);
@@ -624,6 +625,10 @@ test('multi-leg standings and completed leg stats survive reload', async () => {
   assert.match(history, /<section class="game-stats-section"><h2>Leg 1/);
   assert.doesNotMatch(history, /<summary>Leg /);
   assert.match(history, /data-label="Average">50\.2/);
+  assert.doesNotMatch(history, /<th[^>]*>Turns<\/th>/);
+  assert.doesNotMatch(history, /<th[^>]*>Darts thrown<\/th>/);
+  assert.match(history, /<dt>Darts thrown<\/dt>/);
+  assert.match(history, /<dt>Bullseyes<\/dt>/);
   assert.doesNotMatch(history, /NaN/);
   const card = renderToStaticMarkup(
     createElement(
