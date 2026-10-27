@@ -71,7 +71,7 @@ class PlayerStatsServiceTest {
                 triple20s,
                 bullseyes,
                 highestScore,
-                highestCheckout, 0, 0);
+                highestCheckout, 0, 0, 0L);
     }
 
     @Test
@@ -99,6 +99,26 @@ class PlayerStatsServiceTest {
         assertThat(result).containsExactly(
                 response("alice", 40.0f, 2, 4, 1, 0, 140, 90),
                 response("bob", 50.0f, 5, 6, 3, 2, 180, 121));
+    }
+
+    @Test
+    void getPlayerStatsIncludesRecordedDartsThrown() {
+        PlayerStat stat = playerStat("alice", 45.5f, 3, 5, 2, 1, 180, 120);
+        when(playerStatRepository.findByPlayerUserNameIn(List.of("alice")))
+                .thenReturn(List.of(stat));
+        when(playerStatRepository.findCompletedDartsThrown("alice")).thenReturn(42L);
+        assertThat(playerStatsService.getPlayerStats(List.of(new UserRequest("alice")))
+                .getFirst().dartsThrown()).isEqualTo(42L);
+    }
+
+    @Test
+    void getPlayerStatsLeavesUnknownHistoricDartCountUnavailable() {
+        PlayerStat stat = playerStat("alice", 45.5f, 3, 5, 2, 1, 180, 120);
+        when(playerStatRepository.findByPlayerUserNameIn(List.of("alice")))
+                .thenReturn(List.of(stat));
+        when(playerStatRepository.findCompletedDartsThrown("alice")).thenReturn(null);
+        assertThat(playerStatsService.getPlayerStats(List.of(new UserRequest("alice")))
+                .getFirst().dartsThrown()).isNull();
     }
 
     @Test

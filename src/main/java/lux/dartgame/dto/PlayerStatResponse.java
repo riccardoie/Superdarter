@@ -9,5 +9,6 @@ public record PlayerStatResponse(String username,
                                  int highestScore,
                                  int highestCheckout,
                                  int wonLegs,
-                                 int playedLegs) {
+                                 int playedLegs,
+                                 Long dartsThrown) {
 }

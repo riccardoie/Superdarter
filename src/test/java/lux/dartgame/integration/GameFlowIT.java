@@ -7,6 +7,7 @@ import java.util.concurrent.Executors;
 import lux.dartgame.dto.CreateGameRequest;
 import lux.dartgame.dto.MatchResponse;
 import lux.dartgame.dto.PlayedRoundRequest;
+import lux.dartgame.dto.PlayerStatResponse;
 import lux.dartgame.dto.UserRequest;
 import lux.dartgame.dto.UndoRoundRequest;
 import lux.dartgame.model.MatchStatus;
@@ -21,6 +22,33 @@ import org.springframework.http.ResponseEntity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GameFlowIT extends AbstractIT {
+    @Test
+    void profileDartsCountOnlyCompletedLegsAndRollbackOnUndo() {
+        String token = register("alice");
+        assertThat(profileDarts(token)).isZero();
+        MatchResponse game = start(token, create(token, "301", List.of()).gameId());
+        game = play(token, game, "alice", "20 3 20 3 20 3");
+        assertThat(profileDarts(token)).isZero();
+        game = play(token, game, "alice", "20 3 19 3 2 1");
+        game = play(token, game, "alice", "1 2");
+        assertThat(profileDarts(token)).isEqualTo(7L);
+        game = undo(token, game);
+        assertThat(profileDarts(token)).isZero();
+        play(token, game, "alice", "0 1 1 2");
+        assertThat(profileDarts(token)).isEqualTo(8L);
+        winLeg(token, start(token, create(token, "301", List.of()).gameId()), "alice");
+        assertThat(profileDarts(token)).isEqualTo(9L);
+        jdbc().update("UPDATE leg_player_stats SET scoring_stats_available=false");
+        assertThat(profileDarts(token)).isNull();
+    }
+
+    private Long profileDarts(final String token) {
+        var result = rest().postForEntity("/api/playerStats",
+                authed(token, List.of(new UserRequest("alice"))), PlayerStatResponse[].class);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        return result.getBody()[0].dartsThrown();
+    }
+
     @Test
     void undoRestoresExactPlayerStateAndTurnOrderAfterReload() {
         String token = register("alice");
@@ -529,6 +557,7 @@ class GameFlowIT extends AbstractIT {
         assertThat(total.get("played_matches")).isEqualTo(0);
         assertThat(total.get("triple20s")).isEqualTo(0);
         assertThat(get(token, game.gameId())).isEqualTo(ended);
+        assertThat(profileDarts(token)).isEqualTo(1L);
     }
 
     @ParameterizedTest
