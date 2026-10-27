@@ -40,9 +40,14 @@ export default function RegisterPage() {
             <input
               label="Username"
               name="username"
+              required
+              pattern={'\\S+'}
+              title="Username must not contain spaces or whitespace"
+              aria-describedby="username-requirements"
               value={formData['username'] || ''}
               onChange={handleChange}
             />
+            <small id="username-requirements">No spaces or whitespace allowed.</small>
           </div>
           <div>
             <label>E-mail: </label>
@@ -50,6 +55,7 @@ export default function RegisterPage() {
               label="email"
               name="email"
               type="email"
+              required
               value={formData['email'] || ''}
               onChange={handleChange}
             />
@@ -60,9 +66,17 @@ export default function RegisterPage() {
               label="Password"
               name="password"
               type="password"
+              required
+              minLength={8}
+              pattern={'[\\s\\S]*[0-9][\\s\\S]*'}
+              title="Password must be at least 8 characters long and contain at least one number"
+              aria-describedby="password-requirements"
               value={formData['password'] || ''}
               onChange={handleChange}
             />
+            <small id="password-requirements">
+              At least 8 characters, including at least one number.
+            </small>
           </div>
           <button className="btn btn-primary" type="submit" disabled={submitting}>
             {submitting ? 'Registering...' : 'Register'}
