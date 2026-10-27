@@ -7,6 +7,8 @@ export default function ConfirmDialog({
   busy,
   onConfirm,
   onCancel,
+  cancelLabel = 'Cancel',
+  confirmClassName = 'btn btn-danger',
 }) {
   return (
     <div className="modal-overlay" onClick={busy ? undefined : onCancel}>
@@ -21,11 +23,16 @@ export default function ConfirmDialog({
         <p>{body}</p>
         {error && <p className="error-message">{error}</p>}
         <div className="modal-actions">
-          <button className="btn" type="button" onClick={onCancel} disabled={busy}>
-            Cancel
+          <button
+            className="btn"
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+          >
+            {cancelLabel}
           </button>
           <button
-            className="btn btn-danger"
+            className={confirmClassName}
             type="button"
             disabled={busy}
             onClick={onConfirm}

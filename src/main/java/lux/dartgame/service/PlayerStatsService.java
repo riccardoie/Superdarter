@@ -34,7 +34,9 @@ public class PlayerStatsService {
                         stat.getHighestScore(),
                         stat.getHighestCheckout(),
                         stat.getWonLegs(),
-                        stat.getPlayedLegs()))
+                        stat.getPlayedLegs(),
+                        playerStatRepository.findCompletedDartsThrown(
+                                stat.getPlayer().getUserName())))
                 .toList();
     }
 }

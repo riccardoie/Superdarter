@@ -17,6 +17,7 @@ import MatchProgress from '../components/MatchProgress';
 import CompletedLegs from '../components/CompletedLegs';
 import { matchFormatLabel } from '../matchFormat';
 import { matchStats } from '../gameStats';
+import { isMatchWinningRound } from '../gameCompletion';
 
 // Array of all numbers from 1-20+25
 const DART_VALUES = Array.from({ length: 20 }, (_, i) => i + 1).concat(25);
@@ -41,6 +42,7 @@ export default function GamePage() {
   const [activeDart, setActiveDart] = useState(0);
   const [managementAction, setManagementAction] = useState(null);
   const [legNotice, setLegNotice] = useState('');
+  const [confirmFinish, setConfirmFinish] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +53,7 @@ export default function GamePage() {
     setManagementAction(null);
     setActionError('');
     setLegNotice('');
+    setConfirmFinish(false);
     getGameState({ gameId })
       .then((data) => {
         if (!cancelled) setGame(data);
@@ -140,7 +143,17 @@ export default function GamePage() {
     }
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
+    if (!canSubmit || submitting) return;
+    setActionError('');
+    if (isMatchWinningRound(game, slots)) {
+      setConfirmFinish(true);
+    } else {
+      submitRound();
+    }
+  }
+
+  async function submitRound() {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
     setActionError('');
@@ -164,12 +177,14 @@ export default function GamePage() {
         setLegNotice('');
       }
       setGame(fresh);
+      setConfirmFinish(false);
       setSlots(emptySlots());
       setActiveDart(0);
     } catch (err) {
       if (err.status === 403 || err.status === 409) {
         try {
           setGame(await getGameState({ gameId }));
+          setConfirmFinish(false);
           setSlots(emptySlots());
           setActiveDart(0);
           setLegNotice('');
@@ -260,7 +275,7 @@ export default function GamePage() {
         )}
       </div>
 
-      {actionError && !managementAction && (
+      {actionError && !managementAction && !confirmFinish && (
         <p className="error-message" role="alert">
           {actionError}
         </p>
@@ -271,18 +286,6 @@ export default function GamePage() {
         </p>
       )}
       <MatchProgress game={game} />
-      {finished && game.permissions.canUndo && (
-        <div className="game-round-actions">
-          <button
-            type="button"
-            className="btn game-undo"
-            onClick={handleUndo}
-            disabled={submitting || !game.permissions.canUndo}
-          >
-            Undo previous round
-          </button>
-        </div>
-      )}
 
       {!finished && <GameScoreboard game={game} slots={slots} />}
 
@@ -450,6 +453,25 @@ export default function GamePage() {
         </p>
       )}
       <CompletedLegs game={game} />
+      {confirmFinish && (
+        <ConfirmDialog
+          title="Was the game completed?"
+          body={`These throws give ${activePlayer} the match win. Confirm the final round, or go back to correct the throws.`}
+          confirmLabel="Yes, finish game"
+          cancelLabel="No, correct throws"
+          confirmClassName="btn btn-primary"
+          busyLabel="Finishing…"
+          busy={submitting}
+          error={actionError}
+          onConfirm={submitRound}
+          onCancel={() => {
+            if (!submitting) {
+              setConfirmFinish(false);
+              setActionError('');
+            }
+          }}
+        />
+      )}
       {managementAction && (
         <ConfirmDialog
           title={

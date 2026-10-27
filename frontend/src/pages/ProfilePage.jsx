@@ -55,6 +55,7 @@ export default function ProfilePage() {
     ['Games won', stats.wonMatches],
     ['Legs played', stats.playedLegs],
     ['Legs won', stats.wonLegs],
+    ['Darts thrown', stats.dartsThrown ?? 'Not available'],
     ['Average points', stats.avgPoints.toFixed(2)],
     ['Highest score', stats.highestScore],
     ['Highest checkout', stats.highestCheckout],
