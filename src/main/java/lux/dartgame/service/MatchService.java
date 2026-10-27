@@ -155,7 +155,11 @@ public class MatchService {
         leg.setStatus(MatchStatus.ABANDONED);
         leg.setFinishedAt(match.getFinishedAt());
         advanceRevision(match);
-        return response(match, actor);
+        MatchResponse result = response(match, actor);
+        if (match.getLegs().stream().noneMatch(l -> l.getStatus() == MatchStatus.COMPLETED)) {
+            matches.delete(match);
+        }
+        return result;
     }
 
     @Transactional

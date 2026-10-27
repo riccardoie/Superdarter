@@ -27,6 +27,7 @@ export default function CompletedLegs({ game }) {
               players={leg.players}
               winner={leg.winner}
               startingPoints={game.startingPoints}
+              showTurns={false}
             />
           </section>
         ))}

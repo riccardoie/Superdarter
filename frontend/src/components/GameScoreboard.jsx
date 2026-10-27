@@ -25,12 +25,12 @@ export default function GameScoreboard({ game, slots }) {
               <span className="game-scoreboard-player-name">
                 {player.username}
               </span>
-              <span
-                className="game-scoreboard-average"
-                title="Average across all legs"
-              >
-                Avg: {averages.get(player.username).toFixed(1)}
-              </span>
+            </span>
+            <span
+              className="game-scoreboard-average"
+              title="Average across all legs"
+            >
+              Avg: {averages.get(player.username).toFixed(1)}
             </span>
             <span className="game-scoreboard-stats">
               {game.legsToWin > 1 && (

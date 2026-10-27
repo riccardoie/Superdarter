@@ -624,6 +624,10 @@ test('multi-leg standings and completed leg stats survive reload', async () => {
   assert.match(history, /<section class="game-stats-section"><h2>Leg 1/);
   assert.doesNotMatch(history, /<summary>Leg /);
   assert.match(history, /data-label="Average">50\.2/);
+  assert.doesNotMatch(history, /<th[^>]*>Turns<\/th>/);
+  assert.doesNotMatch(history, /<th[^>]*>Darts thrown<\/th>/);
+  assert.match(history, /<dt>Darts thrown<\/dt>/);
+  assert.match(history, /<dt>Bullseyes<\/dt>/);
   assert.doesNotMatch(history, /NaN/);
   const card = renderToStaticMarkup(
     createElement(
