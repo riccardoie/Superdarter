@@ -23,6 +23,106 @@ let CompletedLegs;
 const originalFetch = globalThis.fetch;
 const originalLocalStorage = globalThis.localStorage;
 
+function scoringStats(overrides = {}) {
+  return {
+    dartsThrown: 0,
+    firstNinePoints: 0,
+    firstNineDarts: 0,
+    firstNineAverage: 0,
+    score40: 0,
+    score60: 0,
+    score80: 0,
+    score100: 0,
+    score120: 0,
+    score140: 0,
+    score160: 0,
+    score180: 0,
+    ...overrides,
+  };
+}
+
+test('match detailed stats sum counters and weight first-nine average by darts', () => {
+  const player = {
+    username: 'alice',
+    turns: 4,
+    points: 0,
+    highestScore: 180,
+    bullseyes: 0,
+    triple20s: 3,
+  };
+  const first = scoringStats({
+    dartsThrown: 6,
+    firstNinePoints: 120,
+    firstNineDarts: 3,
+    firstNineAverage: 120,
+    score100: 1,
+    score180: 1,
+  });
+  const second = scoringStats({
+    dartsThrown: 12,
+    firstNinePoints: 450,
+    firstNineDarts: 9,
+    firstNineAverage: 150,
+    score100: 2,
+    score180: 2,
+  });
+  const game = {
+    startingPoints: 301,
+    players: [player],
+    legs: [
+      { players: [{ ...player, scoringStats: first }] },
+      { players: [{ ...player, scoringStats: second }] },
+    ],
+  };
+  assert.deepEqual(
+    matchStats(game)[0].scoringStats,
+    scoringStats({
+      dartsThrown: 18,
+      firstNinePoints: 570,
+      firstNineDarts: 12,
+      firstNineAverage: 142.5,
+      score100: 3,
+      score180: 3,
+    })
+  );
+  game.legs[0].players[0].scoringStats = null;
+  assert.equal(matchStats(game)[0].scoringStats, null);
+});
+
+for (const showTurns of [true, false]) {
+  test(`recorded detailed stats render with showTurns=${showTurns}`, () => {
+    const html = renderToStaticMarkup(
+      createElement(GameStatsTable, {
+        players: [
+          {
+            username: 'alice',
+            turns: 4,
+            points: 0,
+            triple20s: 9,
+            scoringStats: scoringStats({
+              dartsThrown: 10,
+              firstNineAverage: 125.25,
+              score100: 2,
+              score180: 1,
+            }),
+          },
+        ],
+        startingPoints: 301,
+        showTurns,
+      })
+    );
+    assert.match(html, /data-label="Darts thrown">10<\/(td|dd)>/);
+    assert.match(html, /data-label="First 9 avg">125\.3<\/td>/);
+    assert.match(html, /data-label="100\+">2<\/dd>/);
+    assert.match(html, /data-label="180">1<\/dd>/);
+    assert.match(html, /data-label="40\+">0<\/dd>/);
+    assert.match(
+      html,
+      /data-label="Checkout accuracy"><span title="Not yet available">—<\/span>/
+    );
+  });
+}
+
 test('match stats aggregate all legs with a turn-weighted average', () => {
   const player = {
     username: 'alice',
@@ -55,6 +155,7 @@ test('match stats aggregate all legs with a turn-weighted average', () => {
   assert.deepEqual(matchStats(game), [
     {
       ...player,
+      scoringStats: null,
       turns: 8,
       highestScore: 180,
       highestCheckout: 121,
@@ -108,7 +209,7 @@ test('leg table shows turns, average, highest, bullseyes and checkout placeholde
   assert.match(html, /data-label="Highest checkout">121<\/td>/);
   assert.match(
     html,
-    /data-label="First 9 avg"><span title="Not yet available">—<\/span>/
+    /data-label="First 9 avg"><span title="Not available for this game">—<\/span>/
   );
   assert.match(html, /data-label="Bullseyes">3<\/dd>/);
   assert.match(html, /<details class="game-stats-details"><summary>More stats/);
@@ -142,11 +243,14 @@ for (const showTurns of [true, false]) {
     ]) {
       assert.ok(
         html.includes(
-          `data-label="${label}"><span title="Not yet available">—</span>`
+          `data-label="${label}"><span title="Not available for this game">—</span>`
         )
       );
     }
-    assert.match(html, /data-label="180">2<\/dd>/);
+    assert.match(
+      html,
+      /data-label="180"><span title="Not available for this game">—<\/span>/
+    );
   });
 }
 
@@ -175,7 +279,7 @@ test('winner table hides turns and keeps checkout accuracy as a placeholder', ()
   assert.match(html, /colSpan="6"|colspan="6"/);
   assert.match(
     html,
-    /data-label="First 9 avg"><span title="Not yet available">—<\/span>/
+    /data-label="First 9 avg"><span title="Not available for this game">—<\/span>/
   );
   assert.match(html, /data-label="Average">75\.3<\/td>/);
   assert.match(
@@ -548,6 +652,48 @@ test('multi-leg standings and completed leg stats survive reload', async () => {
     ),
     ''
   );
+});
+
+test('live scoreboard displays the total average across all legs', () => {
+  const player = {
+    username: 'alice',
+    points: 201,
+    turns: 2,
+    highestScore: 100,
+    bullseyes: 0,
+    legsWon: 1,
+  };
+  const game = {
+    legsToWin: 2,
+    startingPoints: 301,
+    turn: 'alice',
+    players: [player],
+    legs: [
+      { players: [{ ...player, points: 0, turns: 4 }] },
+      { players: [player] },
+    ],
+  };
+  const html = renderToStaticMarkup(
+    createElement(GameScoreboard, { game, slots: [] })
+  );
+  assert.match(
+    html,
+    /game-scoreboard-average" title="Average across all legs">Avg: 66\.8/
+  );
+  assert.match(html, /Turns: 2/);
+  assert.match(html, /Remaining points: 201/);
+});
+
+test('live scoreboard shows zero average before the first turn', () => {
+  const game = {
+    startingPoints: 501,
+    players: [{ username: 'alice', points: 501, turns: 0 }],
+  };
+  const html = renderToStaticMarkup(
+    createElement(GameScoreboard, { game, slots: [] })
+  );
+  assert.match(html, /Avg: 0\.0/);
+  assert.doesNotMatch(html, /NaN|Infinity/);
 });
 
 test('scoreboard reserves checkout space and always puts remaining points last', () => {

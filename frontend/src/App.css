@@ -798,10 +798,24 @@
 
 .game-scoreboard-name {
   grid-area: name;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
+}
+
+.game-scoreboard-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-scoreboard-average {
+  font-size: 0.8rem;
+  font-weight: 400;
+  opacity: 0.85;
 }
 
 .game-scoreboard-leg-wins {
@@ -1413,12 +1427,30 @@
   }
 
   .game-page-header {
-    align-items: stretch;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
   }
 
-  .game-page-in-progress .game-page-header {
-    align-items: flex-start;
+  .game-page-header .game-back-link {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    min-width: 0;
+  }
+
+  .game-page-header .game-manage-button {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    margin-left: 0;
+  }
+
+  .game-page-header .game-format-label {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: left;
   }
 
   .modal-actions {

@@ -20,6 +20,45 @@ import org.springframework.http.ResponseEntity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GameFlowIT extends AbstractIT {
+    @Test
+    void detailedStatsPersistAcrossReloadAndCountExclusiveScoreBands() {
+        String token = register("alice");
+        MatchResponse game = start(token, create(token, "501", List.of()).gameId());
+        game = play(token, game, "alice", "20 3 20 3 20 3");
+        for (int turn = 0; turn < 3; turn++) {
+            game = play(token, game, "alice", "20 3 20 2");
+        }
+        game = play(token, game, "alice", "20 1"); // Bust: leaves one.
+        var stats = game.players().getFirst().scoringStats();
+        assertThat(stats.dartsThrown()).isEqualTo(10);
+        assertThat(stats.firstNineDarts()).isEqualTo(9);
+        assertThat(stats.firstNinePoints()).isEqualTo(480);
+        assertThat(stats.firstNineAverage()).isEqualTo(160f);
+        assertThat(stats.score180()).isEqualTo(1);
+        assertThat(stats.score100()).isEqualTo(3);
+        assertThat(stats.score40()).isZero();
+        assertThat(stats.score60()).isZero();
+        assertThat(stats.score80()).isZero();
+        game = play(token, game, "alice", "1 1 10 2 20 3"); // Ignore after checkout.
+        var reloaded = get(token, game.gameId());
+        assertThat(reloaded.status()).isEqualTo(MatchStatus.COMPLETED);
+        assertThat(reloaded.players().getFirst().scoringStats().dartsThrown()).isEqualTo(12);
+        assertThat(reloaded.players().getFirst().scoringStats().firstNinePoints()).isEqualTo(480);
+        assertThat(reloaded.legs().getFirst().players().getFirst().scoringStats())
+                .isEqualTo(reloaded.players().getFirst().scoringStats());
+        assertThat(jdbc().queryForObject("SELECT darts_thrown FROM leg_player_stats",
+                Integer.class)).isEqualTo(12);
+    }
+
+    @Test
+    void legacyLegStatsAreNotPresentedAsComplete() {
+        String token = register("alice");
+        MatchResponse game = start(token, create(token, "501", List.of()).gameId());
+        jdbc().update("UPDATE leg_player_stats SET scoring_stats_available = false");
+        game = play(token, game, "alice", "20 3");
+        assertThat(get(token, game.gameId()).players().getFirst().scoringStats()).isNull();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"301", "501"})
     void createInitializesOneLegAndStableParticipants(final String gametype) {

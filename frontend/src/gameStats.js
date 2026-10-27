@@ -10,8 +10,36 @@ export function matchStats(game) {
       (total, entry) => total + game.startingPoints - entry.points,
       0
     );
+    const detailed = stats.every((entry) => entry.scoringStats != null);
+    const scoringStats = detailed
+      ? Object.fromEntries(
+          [
+            'dartsThrown',
+            'firstNinePoints',
+            'firstNineDarts',
+            'score40',
+            'score60',
+            'score80',
+            'score100',
+            'score120',
+            'score140',
+            'score160',
+            'score180',
+          ].map((key) => [
+            key,
+            stats.reduce((total, entry) => total + entry.scoringStats[key], 0),
+          ])
+        )
+      : null;
+    if (scoringStats) {
+      scoringStats.firstNineAverage =
+        scoringStats.firstNineDarts > 0
+          ? (scoringStats.firstNinePoints * 3) / scoringStats.firstNineDarts
+          : 0;
+    }
     return {
       ...player,
+      scoringStats,
       turns,
       average: turns > 0 ? scored / turns : 0,
       highestScore: Math.max(0, ...stats.map((entry) => entry.highestScore)),

@@ -121,7 +121,9 @@ public class MatchService {
         if (!stat.getUser().getUserName().equals(request.username())) {
             throw new InvalidTurnException();
         }
-        CountdownRules.Result result = CountdownRules.evaluate(stat.getPoints(), request.score());
+        CountdownRules.Result result = CountdownRules.evaluate(stat.getPoints(), request.score(),
+                Constants.FIRST_NINE_DARTS - stat.getFirstNineDarts());
+        LegScoringStatistics.record(stat, result);
         stat.setTurn(stat.getTurn() + 1);
         stat.setPoints(result.remaining());
         stat.setTriple20s(stat.getTriple20s() + result.triples());
@@ -291,7 +293,20 @@ public class MatchService {
                 .map(s -> new MatchResponse.Player(s.getUser().getUserName(), s.getPosition(),
                         s.getPoints(), s.getTurn(), s.getBullseyes(), s.getTriple20s(),
                         s.getHighestScore(), s.getHighestCheckout(), s.getCheckoutAccuracy(),
-                        legsWon(match, s.getUser()))).toList();
+                        legsWon(match, s.getUser()), scoringStats(s))).toList();
+    }
+
+    private MatchResponse.ScoringStats scoringStats(final LegPlayerStat stat) {
+        if (!stat.isScoringStatsAvailable()) {
+            return null;
+        }
+        float average = stat.getFirstNineDarts() == 0 ? 0f
+                : (float) stat.getFirstNinePoints() * Constants.MAX_DARTS_PER_TURN
+                / stat.getFirstNineDarts();
+        return new MatchResponse.ScoringStats(stat.getDartsThrown(), stat.getFirstNinePoints(),
+                stat.getFirstNineDarts(), average, stat.getScore40(), stat.getScore60(),
+                stat.getScore80(), stat.getScore100(), stat.getScore120(), stat.getScore140(),
+                stat.getScore160(), stat.getScore180());
     }
 
     private String username(final User user) {

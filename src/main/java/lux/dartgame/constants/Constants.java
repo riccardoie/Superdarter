@@ -12,6 +12,8 @@ public final class Constants {
     public static final int MAX_MULTIPLIER = 3;
     public static final int MAX_ROUND_SCORE = 180;
     public static final int MAX_DARTS_PER_TURN = 3;
+    public static final int FIRST_NINE_DARTS = 9;
+    public static final int SCORE_BAND_WIDTH = 20;
     public static final int MAX_LEGS_TO_WIN = 99;
     public static final int TARGET_301 = 301;
     public static final int TARGET_501 = 501;

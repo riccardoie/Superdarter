@@ -9,19 +9,31 @@ public final class CountdownRules {
     }
 
     public record Result(int remaining, int scored, int triples, int bullseyes,
-                         boolean won, boolean bust) {
+                         boolean won, boolean bust, int dartsThrown,
+                         int firstNinePoints, int firstNineDarts) {
     }
 
     public static Result evaluate(final int startingPoints, final String score) {
+        return evaluate(startingPoints, score, Constants.FIRST_NINE_DARTS);
+    }
+
+    public static Result evaluate(final int startingPoints, final String score,
+                                  final int firstNineDartsLeft) {
         int[] darts = parse(score);
         int remaining = startingPoints;
         int triples = 0;
         int bullseyes = 0;
         boolean won = false;
         boolean bust = false;
+        int thrown = 0;
+        int firstPoints = 0;
         for (int i = 0; i < darts.length; i += 2) {
             int number = darts[i];
             int multiplier = darts[i + 1];
+            thrown++;
+            if (thrown <= firstNineDartsLeft) {
+                firstPoints += number * multiplier;
+            }
             remaining -= number * multiplier;
             if (number == Constants.MAX_DART_NUMBER && multiplier == Constants.MAX_MULTIPLIER) {
                 triples++;
@@ -38,8 +50,13 @@ public final class CountdownRules {
                 break;
             }
         }
+        // A blank submission explicitly represents three misses, not zero darts.
+        if (darts.length == 0) {
+            thrown = Constants.MAX_DARTS_PER_TURN;
+        }
         return new Result(bust ? startingPoints : remaining,
-                bust ? 0 : startingPoints - remaining, triples, bullseyes, won, bust);
+                bust ? 0 : startingPoints - remaining, triples, bullseyes, won, bust,
+                thrown, bust ? 0 : firstPoints, Math.min(thrown, firstNineDartsLeft));
     }
 
     private static int[] parse(final String score) {

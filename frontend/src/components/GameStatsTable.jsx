@@ -11,6 +11,16 @@ const SCORE_COUNTS = [
   '180',
 ];
 
+function RecordedStat({ value, decimal = false }) {
+  return value == null ? (
+    <span title="Not available for this game">—</span>
+  ) : decimal ? (
+    value.toFixed(1)
+  ) : (
+    value
+  );
+}
+
 export default function GameStatsTable({
   players,
   winner,
@@ -66,14 +76,17 @@ export default function GameStatsTable({
                 )}
                 {showTurns && (
                   <td className="game-stats-num" data-label="Darts thrown">
-                    <span title="Not yet available">—</span>
+                    <RecordedStat value={player.scoringStats?.dartsThrown} />
                   </td>
                 )}
                 <td className="game-stats-num" data-label="Average">
                   {averageScore(player)}
                 </td>
                 <td className="game-stats-num" data-label="First 9 avg">
-                  <span title="Not yet available">—</span>
+                  <RecordedStat
+                    value={player.scoringStats?.firstNineAverage}
+                    decimal
+                  />
                 </td>
                 <td className="game-stats-num" data-label="Highest score">
                   {player.highestScore}
@@ -96,7 +109,9 @@ export default function GameStatsTable({
                         <div>
                           <dt>Darts thrown</dt>
                           <dd data-label="Darts thrown">
-                            <span title="Not yet available">—</span>
+                            <RecordedStat
+                              value={player.scoringStats?.dartsThrown}
+                            />
                           </dd>
                         </div>
                       )}
@@ -117,11 +132,13 @@ export default function GameStatsTable({
                         <div key={score}>
                           <dt>{score}</dt>
                           <dd data-label={score}>
-                            {score === '180' ? (
-                              (player.triple20s ?? 0)
-                            ) : (
-                              <span title="Not yet available">—</span>
-                            )}
+                            <RecordedStat
+                              value={
+                                player.scoringStats?.[
+                                  `score${parseInt(score, 10)}`
+                                ]
+                              }
+                            />
                           </dd>
                         </div>
                       ))}
