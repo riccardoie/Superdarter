@@ -47,7 +47,7 @@ function Segment({ number, index, onHit }) {
     >
       <path
         className={dark ? 'dartboard-single-dark' : 'dartboard-single-light'}
-        d={arcPath(8, 31, startAngle, endAngle)}
+        d={arcPath(10, 31, startAngle, endAngle)}
       />
       <path
         className={dark ? 'dartboard-single-dark' : 'dartboard-single-light'}
@@ -89,7 +89,7 @@ export default function DartboardInput({ onHit, disabled }) {
         <circle
           cx="110"
           cy="110"
-          r="8"
+          r="10"
           className="dartboard-outer-bull"
           onClick={() => onHit(25, 1)}
         />

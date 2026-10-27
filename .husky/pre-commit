@@ -1,2 +1,5 @@
+#!/bin/sh
+
 mvn checkstyle:check || exit 1
-npx lint-staged
+cd frontend || exit 1
+npm run precommit
