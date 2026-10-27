@@ -8,7 +8,6 @@ public record PlayerStatResponse(String username,
                                  int bullseyes,
                                  int highestScore,
                                  int highestCheckout,
-                                 float avgCheckoutAccuracy,
                                  int wonLegs,
                                  int playedLegs) {
 }

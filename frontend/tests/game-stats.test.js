@@ -4,7 +4,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 import { MemoryRouter } from 'react-router-dom';
-import { matchFormatLabel, standingsInStartingOrder } from '../src/matchFormat.js';
+import {
+  matchFormatLabel,
+  standingsInStartingOrder,
+} from '../src/matchFormat.js';
+import { matchStats } from '../src/gameStats.js';
 
 let server;
 let api;
@@ -19,17 +23,288 @@ let CompletedLegs;
 const originalFetch = globalThis.fetch;
 const originalLocalStorage = globalThis.localStorage;
 
+function scoringStats(overrides = {}) {
+  return {
+    dartsThrown: 0,
+    firstNinePoints: 0,
+    firstNineDarts: 0,
+    firstNineAverage: 0,
+    score40: 0,
+    score60: 0,
+    score80: 0,
+    score100: 0,
+    score120: 0,
+    score140: 0,
+    score160: 0,
+    score180: 0,
+    ...overrides,
+  };
+}
+
+test('match detailed stats sum counters and weight first-nine average by darts', () => {
+  const player = {
+    username: 'alice',
+    turns: 4,
+    points: 0,
+    highestScore: 180,
+    bullseyes: 0,
+    triple20s: 3,
+  };
+  const first = scoringStats({
+    dartsThrown: 6,
+    firstNinePoints: 120,
+    firstNineDarts: 3,
+    firstNineAverage: 120,
+    score100: 1,
+    score180: 1,
+  });
+  const second = scoringStats({
+    dartsThrown: 12,
+    firstNinePoints: 450,
+    firstNineDarts: 9,
+    firstNineAverage: 150,
+    score100: 2,
+    score180: 2,
+  });
+  const game = {
+    startingPoints: 301,
+    players: [player],
+    legs: [
+      { players: [{ ...player, scoringStats: first }] },
+      { players: [{ ...player, scoringStats: second }] },
+    ],
+  };
+  assert.deepEqual(
+    matchStats(game)[0].scoringStats,
+    scoringStats({
+      dartsThrown: 18,
+      firstNinePoints: 570,
+      firstNineDarts: 12,
+      firstNineAverage: 142.5,
+      score100: 3,
+      score180: 3,
+    })
+  );
+  game.legs[0].players[0].scoringStats = null;
+  assert.equal(matchStats(game)[0].scoringStats, null);
+});
+
+for (const showTurns of [true, false]) {
+  test(`recorded detailed stats render with showTurns=${showTurns}`, () => {
+    const html = renderToStaticMarkup(
+      createElement(GameStatsTable, {
+        players: [
+          {
+            username: 'alice',
+            turns: 4,
+            points: 0,
+            triple20s: 9,
+            scoringStats: scoringStats({
+              dartsThrown: 10,
+              firstNineAverage: 125.25,
+              score100: 2,
+              score180: 1,
+            }),
+          },
+        ],
+        startingPoints: 301,
+        showTurns,
+      })
+    );
+    assert.match(html, /data-label="Darts thrown">10<\/(td|dd)>/);
+    assert.match(html, /data-label="First 9 avg">125\.3<\/td>/);
+    assert.match(html, /data-label="100\+">2<\/dd>/);
+    assert.match(html, /data-label="180">1<\/dd>/);
+    assert.match(html, /data-label="40\+">0<\/dd>/);
+    assert.doesNotMatch(html, /Checkout accuracy/);
+  });
+}
+
+test('match stats aggregate all legs with a turn-weighted average', () => {
+  const player = {
+    username: 'alice',
+    points: 0,
+    turns: 5,
+    highestScore: 100,
+    highestCheckout: 40,
+    bullseyes: 1,
+    triple20s: 1,
+  };
+  const game = {
+    startingPoints: 301,
+    players: [player],
+    legs: [
+      {
+        players: [
+          {
+            ...player,
+            turns: 3,
+            highestScore: 180,
+            highestCheckout: 121,
+            bullseyes: 2,
+            triple20s: 2,
+          },
+        ],
+      },
+      { players: [player] },
+    ],
+  };
+  assert.deepEqual(matchStats(game), [
+    {
+      ...player,
+      scoringStats: null,
+      turns: 8,
+      highestScore: 180,
+      highestCheckout: 121,
+      bullseyes: 3,
+      triple20s: 3,
+      average: 602 / 8,
+    },
+  ]);
+});
+
+test('match stats handle unplayed legs and missing leg history', () => {
+  const player = {
+    username: 'alice',
+    points: 301,
+    turns: 0,
+    highestScore: 0,
+    bullseyes: 0,
+  };
+  assert.deepEqual(matchStats({ players: [player] }), [player]);
+  assert.equal(
+    matchStats({
+      players: [player],
+      startingPoints: 301,
+      legs: [{ players: [player] }],
+    })[0].average,
+    0
+  );
+});
+
+test('leg table shows scoring stats without checkout accuracy', () => {
+  const html = renderToStaticMarkup(
+    createElement(GameStatsTable, {
+      players: [
+        {
+          username: 'alice',
+          turns: 8,
+          average: 75.25,
+          highestScore: 180,
+          highestCheckout: 121,
+          bullseyes: 3,
+        },
+      ],
+      winner: 'alice',
+      startingPoints: 301,
+    })
+  );
+  assert.doesNotMatch(html, /data-label="Points"|>Points<|180s/);
+  assert.match(html, /data-label="Turns">8<\/td>/);
+  assert.match(html, /data-label="Average">75\.3<\/td>/);
+  assert.match(html, /data-label="Highest score">180<\/td>/);
+  assert.match(html, /data-label="Highest checkout">121<\/td>/);
+  assert.match(
+    html,
+    /data-label="First 9 avg"><span title="Not available for this game">—<\/span>/
+  );
+  assert.match(html, /data-label="Bullseyes">3<\/dd>/);
+  assert.match(html, /<details class="game-stats-details"><summary>More stats/);
+  assert.match(html, /<dl class="game-stats-counts">/);
+  assert.doesNotMatch(html, /Checkout accuracy/);
+});
+
+for (const showTurns of [true, false]) {
+  test(`darts thrown and score counts are placeholders with showTurns=${showTurns}`, () => {
+    const html = renderToStaticMarkup(
+      createElement(GameStatsTable, {
+        players: [
+          { username: 'alice', turns: 8, average: 75.25, triple20s: 2 },
+        ],
+        startingPoints: 301,
+        showTurns,
+      })
+    );
+    for (const label of [
+      'Darts thrown',
+      '40+',
+      '60+',
+      '80+',
+      '100+',
+      '120+',
+      '140+',
+      '160+',
+    ]) {
+      assert.ok(
+        html.includes(
+          `data-label="${label}"><span title="Not available for this game">—</span>`
+        )
+      );
+    }
+    assert.match(
+      html,
+      /data-label="180"><span title="Not available for this game">—<\/span>/
+    );
+  });
+}
+
+test('winner table hides turns and checkout accuracy', () => {
+  const html = renderToStaticMarkup(
+    createElement(GameStatsTable, {
+      players: [
+        {
+          username: 'alice',
+          turns: 8,
+          average: 75.25,
+          highestScore: 180,
+          bullseyes: 3,
+          legsWon: 2,
+        },
+      ],
+      winner: 'alice',
+      startingPoints: 301,
+      showTurns: false,
+      showLegsWon: true,
+    })
+  );
+  assert.doesNotMatch(html, /data-label="Turns"|>Turns</);
+  assert.match(html, /data-label="Legs won">2<\/td>/);
+  assert.match(html, /colSpan="6"|colspan="6"/);
+  assert.match(
+    html,
+    /data-label="First 9 avg"><span title="Not available for this game">—<\/span>/
+  );
+  assert.match(html, /data-label="Average">75\.3<\/td>/);
+  assert.doesNotMatch(html, /Checkout accuracy/);
+});
+
 before(async () => {
   server = await createServer({ server: { middlewareMode: true } });
   api = await server.ssrLoadModule('/src/api.js');
-  ({ default: GameStatsTable } = await server.ssrLoadModule('/src/components/GameStatsTable.jsx'));
-  ({ default: CheckoutSuggestion } = await server.ssrLoadModule('/src/components/CheckoutSuggestion.jsx'));
-  ({ default: GameCard } = await server.ssrLoadModule('/src/components/GameCard.jsx'));
-  ({ default: CreateGame } = await server.ssrLoadModule('/src/components/CreateGame.jsx'));
-  ({ default: MatchProgress } = await server.ssrLoadModule('/src/components/MatchProgress.jsx'));
-  ({ default: LegTargetPicker } = await server.ssrLoadModule('/src/components/LegTargetPicker.jsx'));
-  ({ default: GameScoreboard } = await server.ssrLoadModule('/src/components/GameScoreboard.jsx'));
-  ({ default: CompletedLegs } = await server.ssrLoadModule('/src/components/CompletedLegs.jsx'));
+  ({ default: GameStatsTable } = await server.ssrLoadModule(
+    '/src/components/GameStatsTable.jsx'
+  ));
+  ({ default: CheckoutSuggestion } = await server.ssrLoadModule(
+    '/src/components/CheckoutSuggestion.jsx'
+  ));
+  ({ default: GameCard } = await server.ssrLoadModule(
+    '/src/components/GameCard.jsx'
+  ));
+  ({ default: CreateGame } = await server.ssrLoadModule(
+    '/src/components/CreateGame.jsx'
+  ));
+  ({ default: MatchProgress } = await server.ssrLoadModule(
+    '/src/components/MatchProgress.jsx'
+  ));
+  ({ default: LegTargetPicker } = await server.ssrLoadModule(
+    '/src/components/LegTargetPicker.jsx'
+  ));
+  ({ default: GameScoreboard } = await server.ssrLoadModule(
+    '/src/components/GameScoreboard.jsx'
+  ));
+  ({ default: CompletedLegs } = await server.ssrLoadModule(
+    '/src/components/CompletedLegs.jsx'
+  ));
   globalThis.localStorage = { getItem: () => null };
 });
 
@@ -48,14 +323,19 @@ for (const startingPoints of [301, 501]) {
         calls.push(url);
         assert.equal(url, `/api/games/${gameId}`);
         const body = {
-          gameId, gametype: String(startingPoints), startingPoints, status,
+          gameId,
+          gametype: String(startingPoints),
+          startingPoints,
+          status,
           winner: status === 'COMPLETED' ? 'bob' : null,
           turn: status === 'IN_PROGRESS' ? 'alice' : null,
-          players: [{
-            username: 'alice',
-            points: startingPoints - 180,
-            turns: 3,
-          }],
+          players: [
+            {
+              username: 'alice',
+              points: startingPoints - 180,
+              turns: 3,
+            },
+          ],
         };
         return new Response(JSON.stringify(body));
       };
@@ -63,11 +343,13 @@ for (const startingPoints of [301, 501]) {
       const game = await api.getGameState({ gameId });
       assert.equal(game.startingPoints, startingPoints);
       assert.equal(calls.length, 1);
-      const html = renderToStaticMarkup(createElement(GameStatsTable, {
-        players: game.players,
-        winner: game.winner,
-        startingPoints: game.startingPoints,
-      }));
+      const html = renderToStaticMarkup(
+        createElement(GameStatsTable, {
+          players: game.players,
+          winner: game.winner,
+          startingPoints: game.startingPoints,
+        })
+      );
       assert.match(html, /data-label="Average">60\.0<\/td>/);
       assert.doesNotMatch(html, /NaN/);
     });
@@ -77,40 +359,77 @@ for (const startingPoints of [301, 501]) {
 test('create, list and round commands use the standalone game contract', async () => {
   const calls = [];
   globalThis.fetch = async (url, options) => {
-    calls.push({ url, method: options.method, body: options.body && JSON.parse(options.body) });
+    calls.push({
+      url,
+      method: options.method,
+      body: options.body && JSON.parse(options.body),
+    });
     return new Response(JSON.stringify({ gameId: 7, revision: 2 }));
   };
   await api.createGame({ gametype: '501', players: ['bob'] });
   await api.getGames({ gamemode: '301' });
   await api.startGame({ gameId: 7 });
-  await api.playRound({ gameId: 7, legId: 9, revision: 1, username: 'alice', score: '' });
+  await api.playRound({
+    gameId: 7,
+    legId: 9,
+    revision: 1,
+    username: 'alice',
+    score: '',
+  });
   await api.abandonGame({ gameId: 7 });
   await api.deleteGame({ gameId: 7 });
-  assert.deepEqual(calls.map((call) => [call.url, call.method]), [
-    ['/api/games', 'POST'], ['/api/games?gametype=301', 'GET'],
-    ['/api/games/7/start', 'POST'], ['/api/games/7/rounds', 'POST'],
-    ['/api/games/7/abandon', 'POST'], ['/api/games/7', 'DELETE'],
-  ]);
-  assert.deepEqual(calls[0].body, { gametype: '501', players: [{ username: 'bob' }], legsToWin: 1 });
-  assert.deepEqual(calls[3].body, { username: 'alice', score: '', legId: 9, revision: 1 });
+  assert.deepEqual(
+    calls.map((call) => [call.url, call.method]),
+    [
+      ['/api/games', 'POST'],
+      ['/api/games?gametype=301', 'GET'],
+      ['/api/games/7/start', 'POST'],
+      ['/api/games/7/rounds', 'POST'],
+      ['/api/games/7/abandon', 'POST'],
+      ['/api/games/7', 'DELETE'],
+    ]
+  );
+  assert.deepEqual(calls[0].body, {
+    gametype: '501',
+    players: [{ username: 'bob' }],
+    legsToWin: 1,
+  });
+  assert.deepEqual(calls[3].body, {
+    username: 'alice',
+    score: '',
+    legId: 9,
+    revision: 1,
+  });
 });
 
 test('stale round failures preserve conflict status and never retry automatically', async () => {
   let count = 0;
   globalThis.fetch = async () => {
     count++;
-    return new Response(JSON.stringify({ message: 'Game state changed' }), { status: 409 });
+    return new Response(JSON.stringify({ message: 'Game state changed' }), {
+      status: 409,
+    });
   };
-  await assert.rejects(api.playRound({ gameId: 7, legId: 9, revision: 1, username: 'alice', score: '' }),
-    (error) => error.status === 409 && error.message === 'Game state changed');
+  await assert.rejects(
+    api.playRound({
+      gameId: 7,
+      legId: 9,
+      revision: 1,
+      username: 'alice',
+      score: '',
+    }),
+    (error) => error.status === 409 && error.message === 'Game state changed'
+  );
   assert.equal(count, 1);
 });
 
 test('average is zero before the first turn', () => {
-  const html = renderToStaticMarkup(createElement(GameStatsTable, {
-    players: [{ username: 'alice', points: 501, turns: 0 }],
-    startingPoints: 501,
-  }));
+  const html = renderToStaticMarkup(
+    createElement(GameStatsTable, {
+      players: [{ username: 'alice', points: 501, turns: 0 }],
+      startingPoints: 501,
+    })
+  );
   assert.match(html, /data-label="Average">0<\/td>/);
   assert.doesNotMatch(html, /NaN|Infinity/);
 });
@@ -118,10 +437,22 @@ test('average is zero before the first turn', () => {
 test('game cards link directly to games and distinguish abandonment from a win', () => {
   for (const status of ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'ABANDONED']) {
     const winner = status === 'COMPLETED' ? 'bob' : null;
-    const html = renderToStaticMarkup(createElement(MemoryRouter, null,
-      createElement(GameCard, { game: { gameId: 7, gametype: '501',
-        status, winner, createdAt: '2026-10-26T12:00:00Z',
-        players: [{ username: 'alice' }, { username: 'bob' }] } })));
+    const html = renderToStaticMarkup(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(GameCard, {
+          game: {
+            gameId: 7,
+            gametype: '501',
+            status,
+            winner,
+            createdAt: '2026-10-26T12:00:00Z',
+            players: [{ username: 'alice' }, { username: 'bob' }],
+          },
+        })
+      )
+    );
     assert.match(html, /href="\/games\/7"/);
     assert.match(html, /alice · bob/);
     assert.match(html, /26 Oct 2026/);
@@ -133,9 +464,13 @@ test('game cards link directly to games and distinguish abandonment from a win',
 });
 
 test('creation form automatically includes the owner in the ten-player limit', () => {
-  const payload = Buffer.from(JSON.stringify({ sub: 'alice' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ sub: 'alice' })).toString(
+    'base64url'
+  );
   globalThis.localStorage = { getItem: () => `header.${payload}.signature` };
-  const html = renderToStaticMarkup(createElement(CreateGame, { onClose() {}, onCreated() {} }));
+  const html = renderToStaticMarkup(
+    createElement(CreateGame, { onClose() {}, onCreated() {} })
+  );
   assert.match(html, /Create game/);
   assert.match(html, /alice \(you\)/);
   assert.match(html, /1 \/ 10/);
@@ -148,8 +483,14 @@ test('creation form automatically includes the owner in the ten-player limit', (
 test('first-to creation sends the selected win target', async () => {
   globalThis.fetch = async (url, options) => {
     assert.equal(url, '/api/games');
-    assert.deepEqual(JSON.parse(options.body), { gametype: '301', players: [], legsToWin: 3 });
-    return new Response(JSON.stringify({ gameId: 7, legsToWin: 3, format: 'FIRST_TO_LEGS' }));
+    assert.deepEqual(JSON.parse(options.body), {
+      gametype: '301',
+      players: [],
+      legsToWin: 3,
+    });
+    return new Response(
+      JSON.stringify({ gameId: 7, legsToWin: 3, format: 'FIRST_TO_LEGS' })
+    );
   };
   const game = await api.createGame({ gametype: '301', legsToWin: 3 });
   assert.equal(game.legsToWin, 3);
@@ -159,49 +500,100 @@ test('first-to creation sends the selected win target', async () => {
 
 test('leg target has separate step buttons, increments correctly and respects limits', () => {
   let value;
-  const picker = LegTargetPicker({ value: '3', onChange: (next) => { value = next; } });
+  const picker = LegTargetPicker({
+    value: '3',
+    onChange: (next) => {
+      value = next;
+    },
+  });
   const [decrease, , increase] = picker.props.children[1].props.children;
   decrease.props.onClick();
   assert.equal(value, '2');
   increase.props.onClick();
   assert.equal(value, '4');
-  for (const [count, lowerDisabled, upperDisabled] of [['1', true, false], ['99', false, true]]) {
+  for (const [count, lowerDisabled, upperDisabled] of [
+    ['1', true, false],
+    ['99', false, true],
+  ]) {
     const tree = LegTargetPicker({ value: count, onChange() {} });
     const [lower, input, upper] = tree.props.children[1].props.children;
     assert.equal(lower.props.disabled, lowerDisabled);
     assert.equal(upper.props.disabled, upperDisabled);
     assert.equal(input.type, 'input');
   }
-  const html = renderToStaticMarkup(createElement(LegTargetPicker, { value: '3', onChange() {} }));
+  const html = renderToStaticMarkup(
+    createElement(LegTargetPicker, { value: '3', onChange() {} })
+  );
   assert.ok(html.indexOf('Decrease legs to win') < html.indexOf('<input'));
   assert.ok(html.indexOf('Increase legs to win') > html.indexOf('<input'));
 });
 
 test('leg standings retain original order as starting players rotate', () => {
-  const original = ['alice', 'bob', 'carol'].map((username) => ({ username, legsWon: 0 }));
+  const original = ['alice', 'bob', 'carol'].map((username) => ({
+    username,
+    legsWon: 0,
+  }));
   for (let offset = 0; offset < original.length; offset++) {
-    const players = [...original.slice(offset), ...original.slice(0, offset)]
-      .map((player) => ({ ...player, legsWon: player.username === 'alice' ? 2 : 1 }));
-    const game = { legsToWin: 3, startingPoints: 501, gametype: '501', currentLegId: 10 + offset,
-      players, legs: [{ legId: 10, number: 1, status: 'IN_PROGRESS', players: original }] };
+    const players = [
+      ...original.slice(offset),
+      ...original.slice(0, offset),
+    ].map((player) => ({
+      ...player,
+      legsWon: player.username === 'alice' ? 2 : 1,
+    }));
+    const game = {
+      legsToWin: 3,
+      startingPoints: 501,
+      gametype: '501',
+      currentLegId: 10 + offset,
+      players,
+      legs: [
+        { legId: 10, number: 1, status: 'IN_PROGRESS', players: original },
+      ],
+    };
     const ordered = standingsInStartingOrder(game);
-    assert.deepEqual(ordered.map((player) => player.username), ['alice', 'bob', 'carol']);
+    assert.deepEqual(
+      ordered.map((player) => player.username),
+      ['alice', 'bob', 'carol']
+    );
     assert.equal(ordered[0].legsWon, 2);
     assert.equal(game.players[0].username, original[offset].username);
-    const html = renderToStaticMarkup(createElement(GameScoreboard, { game, slots: [] }));
+    const html = renderToStaticMarkup(
+      createElement(GameScoreboard, { game, slots: [] })
+    );
     assert.ok(html.indexOf('title="alice"') < html.indexOf('title="bob"'));
     assert.ok(html.indexOf('title="bob"') < html.indexOf('title="carol"'));
   }
 });
 
 test('multi-leg standings and completed leg stats survive reload', async () => {
-  const players = [{ username: 'alice', points: 301, turns: 0, legsWon: 1 },
-    { username: 'bob', points: 301, turns: 0, legsWon: 0 }];
-  const body = { gameId: 7, legsToWin: 2, gametype: '301', startingPoints: 301,
-    status: 'IN_PROGRESS', currentLegId: 12, turn: 'bob', players,
-    legs: [{ legId: 11, number: 1, status: 'COMPLETED', winner: 'alice',
-      players: [{ ...players[0], points: 0, turns: 6 }, { ...players[1], points: 121, turns: 5 }] },
-    { legId: 12, number: 2, status: 'IN_PROGRESS', winner: null, players }] };
+  const players = [
+    { username: 'alice', points: 301, turns: 0, legsWon: 1 },
+    { username: 'bob', points: 301, turns: 0, legsWon: 0 },
+  ];
+  const body = {
+    gameId: 7,
+    legsToWin: 2,
+    gametype: '301',
+    startingPoints: 301,
+    status: 'IN_PROGRESS',
+    currentLegId: 12,
+    turn: 'bob',
+    players,
+    legs: [
+      {
+        legId: 11,
+        number: 1,
+        status: 'COMPLETED',
+        winner: 'alice',
+        players: [
+          { ...players[0], points: 0, turns: 6 },
+          { ...players[1], points: 121, turns: 5 },
+        ],
+      },
+      { legId: 12, number: 2, status: 'IN_PROGRESS', winner: null, players },
+    ],
+  };
   globalThis.fetch = async () => new Response(JSON.stringify(body));
   const game = await api.getGameState({ gameId: 7 });
   assert.equal(game.currentLegId, 12);
@@ -210,39 +602,128 @@ test('multi-leg standings and completed leg stats survive reload', async () => {
   assert.match(html, /First to 2 legs/);
   assert.match(html, /Leg 2 · 301/);
   assert.doesNotMatch(html, /Completed legs|match-standings/);
-  const scoreboard = renderToStaticMarkup(createElement(GameScoreboard, { game, slots: [] }));
-  assert.match(scoreboard, /game-scoreboard-stats"><span class="game-scoreboard-leg-wins">Legs: 1 \/ 2<\/span><span class="game-scoreboard-turns">Turns: 0/);
-  assert.match(scoreboard, /<span class="game-scoreboard-checkout"><\/span><span class="game-scoreboard-points" aria-label="Remaining points: 301">301<\/span>/);
+  const scoreboard = renderToStaticMarkup(
+    createElement(GameScoreboard, { game, slots: [] })
+  );
+  assert.match(
+    scoreboard,
+    /game-scoreboard-stats"><span class="game-scoreboard-leg-wins">Legs: 1 \/ 2<\/span><span class="game-scoreboard-turns">Turns: 0/
+  );
+  assert.match(
+    scoreboard,
+    /<span class="game-scoreboard-checkout"><\/span><span class="game-scoreboard-points" aria-label="Remaining points: 301">301<\/span>/
+  );
   const history = renderToStaticMarkup(createElement(CompletedLegs, { game }));
-  assert.match(history, /<button type="button" class="btn" aria-expanded="false"/);
-  assert.match(history, /Completed legs \(1\)/);
+  assert.match(
+    history,
+    /<button type="button" class="match-leg-toggle" aria-expanded="false"/
+  );
+  assert.match(history, /Show completed legs \(1\)/);
   assert.match(history, /id="completed-legs-panel" hidden=""/);
   assert.match(history, /Leg 1 — alice wins/);
+  assert.match(history, /<section class="game-stats-section"><h2>Leg 1/);
+  assert.doesNotMatch(history, /<summary>Leg /);
   assert.match(history, /data-label="Average">50\.2/);
   assert.doesNotMatch(history, /NaN/);
-  const card = renderToStaticMarkup(createElement(MemoryRouter, null,
-    createElement(GameCard, { game: { ...game, createdAt: '2026-10-26T12:00:00Z' } })));
+  const card = renderToStaticMarkup(
+    createElement(
+      MemoryRouter,
+      null,
+      createElement(GameCard, {
+        game: { ...game, createdAt: '2026-10-26T12:00:00Z' },
+      })
+    )
+  );
   assert.match(card, /First to 2 legs/);
   assert.match(card, /alice: 1 · bob: 0/);
-  assert.equal(renderToStaticMarkup(createElement(MatchProgress, { game: { legsToWin: 1 } })), '');
+  assert.equal(
+    renderToStaticMarkup(
+      createElement(MatchProgress, { game: { legsToWin: 1 } })
+    ),
+    ''
+  );
+});
+
+test('live scoreboard displays the total average across all legs', () => {
+  const player = {
+    username: 'alice',
+    points: 201,
+    turns: 2,
+    highestScore: 100,
+    bullseyes: 0,
+    legsWon: 1,
+  };
+  const game = {
+    legsToWin: 2,
+    startingPoints: 301,
+    turn: 'alice',
+    players: [player],
+    legs: [
+      { players: [{ ...player, points: 0, turns: 4 }] },
+      { players: [player] },
+    ],
+  };
+  const html = renderToStaticMarkup(
+    createElement(GameScoreboard, { game, slots: [] })
+  );
+  assert.match(
+    html,
+    /game-scoreboard-average" title="Average across all legs">Avg: 66\.8/
+  );
+  assert.match(html, /Turns: 2/);
+  assert.match(html, /Remaining points: 201/);
+});
+
+test('live scoreboard shows zero average before the first turn', () => {
+  const game = {
+    startingPoints: 501,
+    players: [{ username: 'alice', points: 501, turns: 0 }],
+  };
+  const html = renderToStaticMarkup(
+    createElement(GameScoreboard, { game, slots: [] })
+  );
+  assert.match(html, /Avg: 0\.0/);
+  assert.doesNotMatch(html, /NaN|Infinity/);
 });
 
 test('scoreboard reserves checkout space and always puts remaining points last', () => {
-  const game = { legsToWin: 3, startingPoints: 501, turn: 'alice',
-    players: [{ username: 'alice', points: 100, turns: 5, legsWon: 1 },
-      { username: 'bob', points: 501, turns: 4, legsWon: 0 }], legs: [] };
-  const html = renderToStaticMarkup(createElement(GameScoreboard, { game, slots: [] }));
-  assert.equal([...html.matchAll(/class="game-scoreboard-checkout"/g)].length, 2);
+  const game = {
+    legsToWin: 3,
+    startingPoints: 501,
+    turn: 'alice',
+    players: [
+      { username: 'alice', points: 100, turns: 5, legsWon: 1 },
+      { username: 'bob', points: 501, turns: 4, legsWon: 0 },
+    ],
+    legs: [],
+  };
+  const html = renderToStaticMarkup(
+    createElement(GameScoreboard, { game, slots: [] })
+  );
+  assert.equal(
+    [...html.matchAll(/class="game-scoreboard-checkout"/g)].length,
+    2
+  );
   assert.match(html, /t20 → d20/);
   assert.match(html, /game-scoreboard-checkout"><\/span>/);
   const stats = html.slice(html.indexOf('game-scoreboard-stats'));
-  assert.ok(stats.indexOf('game-scoreboard-leg-wins') < stats.indexOf('game-scoreboard-turns'));
-  assert.ok(stats.indexOf('game-scoreboard-turns') < stats.indexOf('game-scoreboard-checkout'));
-  assert.ok(stats.indexOf('game-scoreboard-checkout') < stats.indexOf('game-scoreboard-points'));
+  assert.ok(
+    stats.indexOf('game-scoreboard-leg-wins') <
+      stats.indexOf('game-scoreboard-turns')
+  );
+  assert.ok(
+    stats.indexOf('game-scoreboard-turns') <
+      stats.indexOf('game-scoreboard-checkout')
+  );
+  assert.ok(
+    stats.indexOf('game-scoreboard-checkout') <
+      stats.indexOf('game-scoreboard-points')
+  );
 });
 
 test('checkout suggestion renders compact routes and hides unavailable checkouts', () => {
-  const render = (points, slots) => renderToStaticMarkup(createElement(CheckoutSuggestion, { points, slots }));
+  const render = (points, slots) =>
+    renderToStaticMarkup(createElement(CheckoutSuggestion, { points, slots }));
   const empty = { value: '', multiplier: 1 };
   assert.match(render(60, [empty, empty, empty]), />20 → d20<\/span>/);
   assert.match(render(100, [empty, empty, empty]), />t20 → d20<\/span>/);

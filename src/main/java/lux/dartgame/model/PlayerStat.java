@@ -30,7 +30,6 @@ public class PlayerStat {
     private int bullseyes;
     private int highestScore;
     private int highestCheckout;
-    private float avgCheckoutAccuracy;
 
     @NotNull
     @JoinColumn(name = "player_id", nullable = false)

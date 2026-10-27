@@ -33,7 +33,6 @@ public class PlayerStatsService {
                         stat.getBullseyes(),
                         stat.getHighestScore(),
                         stat.getHighestCheckout(),
-                        stat.getAvgCheckoutAccuracy(),
                         stat.getWonLegs(),
                         stat.getPlayedLegs()))
                 .toList();
