@@ -155,18 +155,18 @@
 
 /* ===== Home page ===== */
 .home-page {
-  --home-accent: #7dd3fc;
-  --home-ink: #0b1930;
-  --home-paper: #f8fbff;
-  --home-text-muted: #bed0e9;
-  --home-line: rgba(248, 251, 255, 0.24);
+  --home-accent: var(--color-primary);
+  --home-ink: var(--color-bg);
+  --home-paper: var(--color-text);
+  --home-text-muted: var(--color-text-muted);
+  --home-line: color-mix(in srgb, var(--color-text) 24%, transparent);
   min-height: 100%;
   margin: calc(var(--space-5) * -1);
   padding: clamp(24px, 5vw, 72px);
   color: var(--home-paper);
   background:
-    radial-gradient(circle at 75% 12%, rgba(21, 94, 239, 0.42), transparent 28rem),
-    linear-gradient(135deg, #0b1930 0%, #12365e 55%, #0d2440 100%);
+    radial-gradient(circle at 75% 12%, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 28rem),
+    linear-gradient(135deg, var(--color-bg) 0%, var(--color-primary-subtle) 55%, var(--color-surface) 100%);
   overflow: hidden;
 }
 
@@ -241,8 +241,8 @@
   position: relative;
   overflow: hidden;
   background:
-    linear-gradient(145deg, transparent 35%, rgba(125, 211, 252, 0.38)),
-    linear-gradient(25deg, #0b1930, #155eef);
+    linear-gradient(145deg, transparent 35%, color-mix(in srgb, var(--color-primary) 38%, transparent)),
+    linear-gradient(25deg, var(--color-bg), var(--color-primary-subtle));
 }
 
 .home-player-photo img {
