@@ -12,6 +12,7 @@ import lux.dartgame.dto.CreateGameRequest;
 import lux.dartgame.dto.MatchResponse;
 import lux.dartgame.dto.PlayedRoundRequest;
 import lux.dartgame.dto.UserRequest;
+import lux.dartgame.dto.UndoRoundRequest;
 import lux.dartgame.exception.AccessDeniedException;
 import lux.dartgame.exception.GameConflictException;
 import lux.dartgame.exception.GameModeNotFoundException;
@@ -23,11 +24,14 @@ import lux.dartgame.model.LegPlayerStat;
 import lux.dartgame.model.Match;
 import lux.dartgame.model.MatchParticipant;
 import lux.dartgame.model.MatchStatus;
+import lux.dartgame.model.PlayedRound;
+import lux.dartgame.model.RoundSnapshot;
 import lux.dartgame.model.User;
 import lux.dartgame.repository.GametypeRepository;
 import lux.dartgame.repository.MatchRepository;
 import lux.dartgame.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.BeanUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -123,6 +127,13 @@ public class MatchService {
         }
         CountdownRules.Result result = CountdownRules.evaluate(stat.getPoints(), request.score(),
                 Constants.FIRST_NINE_DARTS - stat.getFirstNineDarts());
+        PlayedRound round = new PlayedRound();
+        round.setMatch(match);
+        round.setPlayerStat(stat);
+        RoundSnapshot snapshot = new RoundSnapshot();
+        BeanUtils.copyProperties(stat, snapshot);
+        round.setBeforeRound(snapshot);
+        match.getRounds().add(round);
         LegScoringStatistics.record(stat, result);
         stat.setTurn(stat.getTurn() + 1);
         stat.setPoints(result.remaining());
@@ -136,6 +147,38 @@ public class MatchService {
         advanceRevision(match);
         // Persist a newly created next leg before exposing its generated ID to the client.
         matches.saveAndFlush(match);
+        return response(match, actor);
+    }
+
+    @Transactional
+    public MatchResponse undo(final long id, final UndoRoundRequest request, final String actor) {
+        Match match = locked(id);
+        requireParticipant(match, actor);
+        if (request.revision() != match.getRevision()) {
+            throw new GameConflictException("Game state changed. Reload before undoing a round");
+        }
+        if ((match.getStatus() != MatchStatus.IN_PROGRESS
+                && match.getStatus() != MatchStatus.COMPLETED) || match.getRounds().isEmpty()) {
+            throw new GameConflictException("There is no submitted round to undo");
+        }
+        PlayedRound round = match.getRounds().removeLast();
+        LegPlayerStat stat = round.getPlayerStat();
+        Leg leg = stat.getLeg();
+        boolean completed = leg.getStatus() == MatchStatus.COMPLETED;
+        // A checkout may have created a new, unplayed leg. Remove it when reopening that leg.
+        match.getLegs().removeIf(l -> l.getLegNumber() > leg.getLegNumber());
+        leg.setStatus(MatchStatus.IN_PROGRESS);
+        leg.setWinner(null);
+        leg.setFinishedAt(null);
+        match.setStatus(MatchStatus.IN_PROGRESS);
+        match.setWinner(null);
+        match.setFinishedAt(null);
+        BeanUtils.copyProperties(round.getBeforeRound(), stat);
+        advanceRevision(match);
+        matches.saveAndFlush(match);
+        if (completed) {
+            statistics.rebuildTotals(leg);
+        }
         return response(match, actor);
     }
 
@@ -157,6 +200,8 @@ public class MatchService {
         advanceRevision(match);
         MatchResponse result = response(match, actor);
         if (match.getLegs().stream().noneMatch(l -> l.getStatus() == MatchStatus.COMPLETED)) {
+            match.getRounds().clear();
+            matches.flush();
             matches.delete(match);
         }
         return result;
@@ -288,7 +333,9 @@ public class MatchService {
                 match.getRevision(), leg.getLegId(),
                 match.getLegsToWin() == 1 ? "SINGLE_LEG" : "FIRST_TO_LEGS", players, legs,
                 new MatchResponse.Permissions(member && pending, member && playing,
-                        manager && pending, manager && playing), match.getLegsToWin());
+                        manager && pending, manager && playing,
+                        member && (playing || match.getStatus() == MatchStatus.COMPLETED)
+                                && !match.getRounds().isEmpty()), match.getLegsToWin());
     }
 
     private List<MatchResponse.Player> players(final Match match, final Leg leg) {

@@ -26,6 +26,6 @@ public record MatchResponse(long gameId, String owner, String gametype, int star
     }
 
     public record Permissions(boolean canStart, boolean canScore,
-                              boolean canDelete, boolean canAbandon) {
+                              boolean canDelete, boolean canAbandon, boolean canUndo) {
     }
 }

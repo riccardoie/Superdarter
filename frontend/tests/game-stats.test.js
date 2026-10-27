@@ -423,6 +423,39 @@ test('stale round failures preserve conflict status and never retry automaticall
   assert.equal(count, 1);
 });
 
+test('round undo submits the current revision and returns the restored game', async () => {
+  const calls = [];
+  const restored = {
+    gameId: 7,
+    revision: 4,
+    status: 'IN_PROGRESS',
+    turn: 'alice',
+  };
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, method: options.method, body: JSON.parse(options.body) });
+    return new Response(JSON.stringify(restored));
+  };
+  assert.deepEqual(await api.undoRound({ gameId: 7, revision: 3 }), restored);
+  assert.deepEqual(calls, [
+    { url: '/api/games/7/undo', method: 'POST', body: { revision: 3 } },
+  ]);
+});
+
+test('stale undo is not retried against a newer round', async () => {
+  let count = 0;
+  globalThis.fetch = async () => {
+    count++;
+    return new Response(JSON.stringify({ message: 'Game state changed' }), {
+      status: 409,
+    });
+  };
+  await assert.rejects(
+    api.undoRound({ gameId: 7, revision: 3 }),
+    (error) => error.status === 409
+  );
+  assert.equal(count, 1);
+});
+
 test('average is zero before the first turn', () => {
   const html = renderToStaticMarkup(
     createElement(GameStatsTable, {

@@ -51,4 +51,7 @@ public class Match {
     @OneToMany(mappedBy = "match", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("legNumber ASC")
     private List<Leg> legs = new ArrayList<>();
+    @OneToMany(mappedBy = "match", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("roundId ASC")
+    private List<PlayedRound> rounds = new ArrayList<>();
 }

@@ -1,6 +1,7 @@
 package lux.dartgame.service;
 
 import java.util.Comparator;
+import java.util.List;
 import jakarta.persistence.EntityManager;
 import lux.dartgame.model.Leg;
 import lux.dartgame.model.LegPlayerStat;
@@ -54,6 +55,39 @@ public class MatchStatisticsService {
             total.setHighestScore(Math.max(total.getHighestScore(), stat.getHighestScore()));
             total.setHighestCheckout(
                     Math.max(total.getHighestCheckout(), stat.getHighestCheckout()));
+        }
+    }
+
+    // Rebuild from retained completed legs so undo can also lower personal-best records safely.
+    public void rebuildTotals(final Leg reopened) {
+        for (LegPlayerStat participant : reopened.getPlayerStats().stream()
+                .sorted(Comparator.comparingLong(s -> s.getUser().getUserId())).toList()) {
+            User user = users.findForUpdate(participant.getUser().getUserId()).orElseThrow();
+            PlayerStat total = user.getStats();
+            entities.refresh(total);
+            List<LegPlayerStat> completed = entities.createQuery(
+                    "select s from LegPlayerStat s join fetch s.leg l join fetch l.match m "
+                            + "join fetch m.gametype where s.user.userId = :user "
+                            + "and l.status = lux.dartgame.model.MatchStatus.COMPLETED",
+                    LegPlayerStat.class).setParameter("user", user.getUserId()).getResultList();
+            total.setPlayedLegs(completed.size());
+            total.setWonLegs((int) completed.stream()
+                    .filter(s -> s.getLeg().getWinner().getUserId() == user.getUserId()).count());
+            var matches = completed.stream().map(s -> s.getLeg().getMatch())
+                    .filter(m -> m.getStatus() == lux.dartgame.model.MatchStatus.COMPLETED)
+                    .distinct().toList();
+            total.setPlayedMatches(matches.size());
+            total.setWonMatches((int) matches.stream()
+                    .filter(m -> m.getWinner().getUserId() == user.getUserId()).count());
+            total.setAvgPoints((float) completed.stream().mapToDouble(s -> s.getTurn() == 0 ? 0
+                    : (double) (Integer.parseInt(s.getLeg().getMatch().getGametype().getGametype())
+                    - s.getPoints()) / s.getTurn()).average().orElse(0));
+            total.setTriple20s(completed.stream().mapToInt(LegPlayerStat::getTriple20s).sum());
+            total.setBullseyes(completed.stream().mapToInt(LegPlayerStat::getBullseyes).sum());
+            total.setHighestScore(completed.stream().mapToInt(LegPlayerStat::getHighestScore)
+                    .max().orElse(0));
+            total.setHighestCheckout(completed.stream().mapToInt(LegPlayerStat::getHighestCheckout)
+                    .max().orElse(0));
         }
     }
 }

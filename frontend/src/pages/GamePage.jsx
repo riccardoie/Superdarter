@@ -6,9 +6,10 @@ import {
   getGameState,
   playRound,
   startGame,
+  undoRound,
 } from '../api';
 import DartboardInput from '../components/DartboardInput';
-import { canSubmitRound, serializeRound, undoLastDart } from '../dartRound';
+import { canSubmitRound, serializeRound } from '../dartRound';
 import GameStatsTable from '../components/GameStatsTable';
 import GameScoreboard from '../components/GameScoreboard';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -112,12 +113,31 @@ export default function GamePage() {
     setActiveDart((activeDart + 1) % slots.length);
   }
 
-  function handleUndo() {
-    if (submitting) return;
-    const undone = undoLastDart(slots);
-    setSlots(undone.slots);
-    setActiveDart(undone.activeDart);
+  async function handleUndo() {
+    if (submitting || !game.permissions.canUndo) return;
+    setSubmitting(true);
     setActionError('');
+    try {
+      setGame(await undoRound({ gameId, revision: game.revision }));
+      setSlots(emptySlots());
+      setActiveDart(0);
+      setLegNotice('Previous round undone. Enter the corrected throws.');
+    } catch (err) {
+      if (err.status === 403 || err.status === 409) {
+        try {
+          setGame(await getGameState({ gameId }));
+          setSlots(emptySlots());
+          setActiveDart(0);
+          setLegNotice('');
+        } catch (reloadError) {
+          setActionError(`Unable to reload game: ${reloadError.message}`);
+          return;
+        }
+      }
+      setActionError(`Failed to undo round: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleSubmit() {
@@ -251,6 +271,18 @@ export default function GamePage() {
         </p>
       )}
       <MatchProgress game={game} />
+      {finished && game.permissions.canUndo && (
+        <div className="game-round-actions">
+          <button
+            type="button"
+            className="btn game-undo"
+            onClick={handleUndo}
+            disabled={submitting || !game.permissions.canUndo}
+          >
+            Undo previous round
+          </button>
+        </div>
+      )}
 
       {!finished && <GameScoreboard game={game} slots={slots} />}
 
@@ -393,9 +425,9 @@ export default function GamePage() {
               type="button"
               className="btn game-undo"
               onClick={handleUndo}
-              disabled={submitting || slots.every((slot) => slot.value === '')}
+              disabled={submitting || !game.permissions.canUndo}
             >
-              Undo last dart
+              Undo previous round
             </button>
             <button
               type="button"
