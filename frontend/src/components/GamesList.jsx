@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getGames } from '../api';
 import GameCard from './GameCard';
+import { sortGames } from '../gameOrder';
 
 export default function GamesList({ gamemode }) {
   const [games, setGames] = useState(null);
@@ -11,19 +12,32 @@ export default function GamesList({ gamemode }) {
     setGames(null);
     setError('');
     getGames({ gamemode })
-      .then((data) => { if (!cancelled) setGames(data); })
-      .catch((err) => { if (!cancelled) setError(err.message); });
-    return () => { cancelled = true; };
+      .then((data) => {
+        if (!cancelled) setGames(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [gamemode]);
 
-  if (error) return <p className="error-message">Failed to load games: {error}</p>;
+  if (error)
+    return <p className="error-message">Failed to load games: {error}</p>;
   if (games === null) return <p className="state-message">Loading games...</p>;
   if (games.length === 0) {
-    return <p className="state-message">{gamemode ? `No ${gamemode} games yet` : 'No games yet'}</p>;
+    return (
+      <p className="state-message">
+        {gamemode ? `No ${gamemode} games yet` : 'No games yet'}
+      </p>
+    );
   }
   return (
     <div className="games-list">
-      {games.map((game) => <GameCard key={game.gameId} game={game} />)}
+      {sortGames(games).map((game) => (
+        <GameCard key={game.gameId} game={game} />
+      ))}
     </div>
   );
 }

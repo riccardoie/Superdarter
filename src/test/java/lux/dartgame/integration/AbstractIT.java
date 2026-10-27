@@ -41,7 +41,7 @@ abstract class AbstractIT {
     protected static final String GAMEMODE_URL = "/api/gamemode";
     protected static final String PLAYER_STATS_URL = "/api/playerStats";
 
-    protected static final String PASSWORD = "correct-horse-battery-staple";
+    protected static final String PASSWORD = "correct-horse-battery-staple1";
     protected static final String EMAIL_DOMAIN = "@example.test";
     protected static final String TARGET_301 = "301";
     protected static final String TARGET_501 = "501";

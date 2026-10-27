@@ -61,12 +61,12 @@ The same response shape is returned by create, get, start, round, and abandon:
   "players": [{
     "username": "alice", "position": 0, "points": 501, "turns": 0,
     "bullseyes": 0, "triple20s": 0, "highestScore": 0,
-    "highestCheckout": 0, "checkoutAccuracy": 0, "legsWon": 0
+    "highestCheckout": 0, "legsWon": 0
   }],
   "legs": [{ "legId": 20, "number": 1, "status": "IN_PROGRESS", "winner": null,
     "players": [{ "username": "alice", "position": 0, "points": 501, "turns": 0,
       "bullseyes": 0, "triple20s": 0, "highestScore": 0, "highestCheckout": 0,
-      "checkoutAccuracy": 0, "legsWon": 0 }] }],
+      "legsWon": 0 }] }],
   "permissions": { "canStart": false, "canScore": true, "canDelete": false, "canAbandon": true }
 }
 ```

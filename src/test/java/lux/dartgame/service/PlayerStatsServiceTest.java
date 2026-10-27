@@ -43,8 +43,7 @@ class PlayerStatsServiceTest {
                                   final int triple20s,
                                   final int bullseyes,
                                   final int highestScore,
-                                  final int highestCheckout,
-                                  final float avgCheckoutAccuracy) {
+                                  final int highestCheckout) {
         PlayerStat stat = new PlayerStat();
         stat.setPlayer(user(username));
         stat.setAvgPoints(avgPoints);
@@ -54,7 +53,6 @@ class PlayerStatsServiceTest {
         stat.setBullseyes(bullseyes);
         stat.setHighestScore(highestScore);
         stat.setHighestCheckout(highestCheckout);
-        stat.setAvgCheckoutAccuracy(avgCheckoutAccuracy);
         return stat;
     }
 
@@ -65,8 +63,7 @@ class PlayerStatsServiceTest {
                                         final int triple20s,
                                         final int bullseyes,
                                         final int highestScore,
-                                        final int highestCheckout,
-                                        final float avgCheckoutAccuracy) {
+                                        final int highestCheckout) {
         return new PlayerStatResponse(username,
                 avgPoints,
                 wonGames,
@@ -74,26 +71,25 @@ class PlayerStatsServiceTest {
                 triple20s,
                 bullseyes,
                 highestScore,
-                highestCheckout,
-                avgCheckoutAccuracy, 0, 0);
+                highestCheckout, 0, 0);
     }
 
     @Test
     void getPlayerStats_singlePlayer_returnsStatsForThatPlayer() {
-        PlayerStat stat = playerStat("alice", 45.5f, 3, 5, 2, 1, 180, 120, 0.25f);
+        PlayerStat stat = playerStat("alice", 45.5f, 3, 5, 2, 1, 180, 120);
         when(playerStatRepository.findByPlayerUserNameIn(
                 List.of("alice"))).thenReturn(List.of(stat));
 
         List<PlayerStatResponse> result = playerStatsService.getPlayerStats(
                 List.of(new UserRequest("alice")));
 
-        assertThat(result).containsExactly(response("alice", 45.5f, 3, 5, 2, 1, 180, 120, 0.25f));
+        assertThat(result).containsExactly(response("alice", 45.5f, 3, 5, 2, 1, 180, 120));
     }
 
     @Test
     void getPlayerStats_twoPlayers_returnsStatsForBothPlayers() {
-        PlayerStat alice = playerStat("alice", 40.0f, 2, 4, 1, 0, 140, 90, 0.2f);
-        PlayerStat bob = playerStat("bob", 50.0f, 5, 6, 3, 2, 180, 121, 0.5f);
+        PlayerStat alice = playerStat("alice", 40.0f, 2, 4, 1, 0, 140, 90);
+        PlayerStat bob = playerStat("bob", 50.0f, 5, 6, 3, 2, 180, 121);
         when(playerStatRepository.findByPlayerUserNameIn(
                 List.of("alice", "bob"))).thenReturn(List.of(alice, bob));
 
@@ -101,8 +97,8 @@ class PlayerStatsServiceTest {
                 List.of(new UserRequest("alice"), new UserRequest("bob")));
 
         assertThat(result).containsExactly(
-                response("alice", 40.0f, 2, 4, 1, 0, 140, 90, 0.2f),
-                response("bob", 50.0f, 5, 6, 3, 2, 180, 121, 0.5f));
+                response("alice", 40.0f, 2, 4, 1, 0, 140, 90),
+                response("bob", 50.0f, 5, 6, 3, 2, 180, 121));
     }
 
     @Test

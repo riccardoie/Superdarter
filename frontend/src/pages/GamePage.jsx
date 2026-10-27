@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { abandonGame, deleteGame, getGameState, playRound, startGame } from '../api';
+import {
+  abandonGame,
+  deleteGame,
+  getGameState,
+  playRound,
+  startGame,
+  undoRound,
+} from '../api';
 import DartboardInput from '../components/DartboardInput';
-import { canSubmitRound, serializeRound, undoLastDart } from '../dartRound';
+import { canSubmitRound, serializeRound } from '../dartRound';
 import GameStatsTable from '../components/GameStatsTable';
 import GameScoreboard from '../components/GameScoreboard';
 import ConfirmDialog from '../components/ConfirmDialog';
 import MatchProgress from '../components/MatchProgress';
 import CompletedLegs from '../components/CompletedLegs';
 import { matchFormatLabel } from '../matchFormat';
+import { matchStats } from '../gameStats';
 
 // Array of all numbers from 1-20+25
 const DART_VALUES = Array.from({ length: 20 }, (_, i) => i + 1).concat(25);
@@ -88,10 +96,7 @@ export default function GamePage() {
       const next = prev.map((slot, i) =>
         i === index ? { ...slot, [field]: value } : slot
       );
-      if (
-        field === 'value' &&
-        (Number(value) === 0 || Number(value) === 25)
-      ) {
+      if (field === 'value' && (Number(value) === 0 || Number(value) === 25)) {
         next[index].multiplier = 1;
       }
       return next;
@@ -108,12 +113,31 @@ export default function GamePage() {
     setActiveDart((activeDart + 1) % slots.length);
   }
 
-  function handleUndo() {
-    if (submitting) return;
-    const undone = undoLastDart(slots);
-    setSlots(undone.slots);
-    setActiveDart(undone.activeDart);
+  async function handleUndo() {
+    if (submitting || !game.permissions.canUndo) return;
+    setSubmitting(true);
     setActionError('');
+    try {
+      setGame(await undoRound({ gameId, revision: game.revision }));
+      setSlots(emptySlots());
+      setActiveDart(0);
+      setLegNotice('Previous round undone. Enter the corrected throws.');
+    } catch (err) {
+      if (err.status === 403 || err.status === 409) {
+        try {
+          setGame(await getGameState({ gameId }));
+          setSlots(emptySlots());
+          setActiveDart(0);
+          setLegNotice('');
+        } catch (reloadError) {
+          setActionError(`Unable to reload game: ${reloadError.message}`);
+          return;
+        }
+      }
+      setActionError(`Failed to undo round: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleSubmit() {
@@ -130,8 +154,12 @@ export default function GamePage() {
         revision: game.revision,
       });
       if (fresh.currentLegId !== game.currentLegId) {
-        const completed = fresh.legs.find((leg) => leg.legId === game.currentLegId);
-        setLegNotice(`${completed.winner} wins leg ${completed.number}. The next leg is ready.`);
+        const completed = fresh.legs.find(
+          (leg) => leg.legId === game.currentLegId
+        );
+        setLegNotice(
+          `${completed.winner} wins leg ${completed.number}. The next leg is ready.`
+        );
       } else {
         setLegNotice('');
       }
@@ -145,7 +173,9 @@ export default function GamePage() {
           setSlots(emptySlots());
           setActiveDart(0);
           setLegNotice('');
-          setActionError('Game state changed. Check the current player and enter the round again.');
+          setActionError(
+            'Game state changed. Check the current player and enter the round again.'
+          );
         } catch (reloadError) {
           setActionError(`Unable to reload game: ${reloadError.message}`);
         }
@@ -177,8 +207,13 @@ export default function GamePage() {
         await deleteGame({ gameId });
         navigate('/games');
       } else {
-        setGame(await abandonGame({ gameId }));
-        setSlots(emptySlots());
+        const ended = await abandonGame({ gameId });
+        if (ended.legs.some((leg) => leg.status === 'COMPLETED')) {
+          setGame(ended);
+          setSlots(emptySlots());
+        } else {
+          navigate('/games');
+        }
       }
       setManagementAction(null);
     } catch (err) {
@@ -205,32 +240,73 @@ export default function GamePage() {
         <Link className="btn game-back-link" to="/games">
           &larr; Back to Games
         </Link>
-        <span className="game-format-label">{game.gametype} · {matchFormatLabel(game.legsToWin)} · Double-out</span>
+        <span className="game-format-label">
+          {game.gametype} · {matchFormatLabel(game.legsToWin)} · Double-out
+        </span>
         {(game.permissions.canDelete || game.permissions.canAbandon) && (
-          <button className="btn game-manage-button" type="button" disabled={submitting}
-            onClick={() => { setActionError(''); setManagementAction(game.permissions.canDelete ? 'delete' : 'abandon'); }}>
+          <button
+            className="btn game-manage-button"
+            type="button"
+            disabled={submitting}
+            onClick={() => {
+              setActionError('');
+              setManagementAction(
+                game.permissions.canDelete ? 'delete' : 'abandon'
+              );
+            }}
+          >
             {game.permissions.canDelete ? 'Delete game' : 'Abandon game'}
           </button>
         )}
       </div>
 
-      {actionError && !managementAction && <p className="error-message" role="alert">{actionError}</p>}
-      {legNotice && !finished && <p className="game-leg-notice" role="status">{legNotice}</p>}
+      {actionError && !managementAction && (
+        <p className="error-message" role="alert">
+          {actionError}
+        </p>
+      )}
+      {legNotice && !finished && (
+        <p className="game-leg-notice" role="status">
+          {legNotice}
+        </p>
+      )}
       <MatchProgress game={game} />
+      {finished && game.permissions.canUndo && (
+        <div className="game-round-actions">
+          <button
+            type="button"
+            className="btn game-undo"
+            onClick={handleUndo}
+            disabled={submitting || !game.permissions.canUndo}
+          >
+            Undo previous round
+          </button>
+        </div>
+      )}
 
       {!finished && <GameScoreboard game={game} slots={slots} />}
 
       {finished ? (
         <>
           <div className="game-winner">
-            <p className="game-result-label">{game.status === 'ABANDONED' ? 'Game abandoned' : 'Game complete'}</p>
+            <p className="game-result-label">
+              {game.status === 'ABANDONED' ? 'Game abandoned' : 'Game complete'}
+            </p>
             <h2>{game.winner || 'No winner'}</h2>
-            <p className="game-result-summary">{game.winner ? 'Takes the win' : 'History saved. Completed legs count towards player totals; the unfinished leg does not.'}</p>
+            <p className="game-result-summary">
+              {game.winner
+                ? 'Takes the win'
+                : 'History saved. Completed legs count towards player totals; the unfinished leg does not.'}
+            </p>
           </div>
           <div className="game-stats-section">
-            <h2>{game.legsToWin > 1 ? 'Final leg stats' : 'Game stats'}</h2>
+            <h2>
+              {game.legsToWin > 1 ? 'Match stats — all legs' : 'Game stats'}
+            </h2>
             <GameStatsTable
-              players={game.players}
+              players={matchStats(game)}
+              showTurns={false}
+              showLegsWon
               winner={game.winner}
               startingPoints={game.startingPoints}
             />
@@ -239,9 +315,16 @@ export default function GamePage() {
       ) : game.status === 'PENDING' ? (
         <div className="game-round-panel">
           <h2>Ready to play</h2>
-          <p className="game-shared-hint">{game.players.map((player) => player.username).join(' · ')}</p>
+          <p className="game-shared-hint">
+            {game.players.map((player) => player.username).join(' · ')}
+          </p>
           {game.permissions.canStart && (
-            <button type="button" className="btn btn-primary" onClick={handleStart} disabled={submitting}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleStart}
+              disabled={submitting}
+            >
               {submitting ? 'Starting…' : 'Start game'}
             </button>
           )}
@@ -342,9 +425,9 @@ export default function GamePage() {
               type="button"
               className="btn game-undo"
               onClick={handleUndo}
-              disabled={submitting || slots.every((slot) => slot.value === '')}
+              disabled={submitting || !game.permissions.canUndo}
             >
-              Undo last dart
+              Undo previous round
             </button>
             <button
               type="button"
@@ -357,25 +440,43 @@ export default function GamePage() {
           </div>
           <p className="game-shared-hint">
             Playing on one device — each player enters their throws when it's
-            their turn.
-            {' '}Enter 1–3 darts in order; leave unused darts blank. Finish on a double.
-            {' '}Register an empty round if all darts missed.
+            their turn. Enter 1–3 darts in order; leave unused darts blank.
+            Finish on a double. Register an empty round if all darts missed.
           </p>
         </div>
-      ) : <p className="state-message">This game is in progress. Only participants can score.</p>}
+      ) : (
+        <p className="state-message">
+          This game is in progress. Only participants can score.
+        </p>
+      )}
       <CompletedLegs game={game} />
       {managementAction && (
         <ConfirmDialog
-          title={managementAction === 'delete' ? 'Delete this game?' : 'Abandon this game?'}
-          body={managementAction === 'delete'
-            ? 'This permanently deletes the pending game. No played history is removed.'
-            : 'The game will end without an overall winner. Completed leg results and statistics are kept; the unfinished leg will not count towards player totals.'}
-          confirmLabel={managementAction === 'delete' ? 'Delete game' : 'Abandon game'}
+          title={
+            managementAction === 'delete'
+              ? 'Delete this game?'
+              : 'Abandon this game?'
+          }
+          body={
+            managementAction === 'delete'
+              ? 'This permanently deletes the pending game. No played history is removed.'
+              : game.legs.some((leg) => leg.status === 'COMPLETED')
+                ? 'The game will end without an overall winner. Completed leg results and statistics are kept; the unfinished leg will not count towards player totals.'
+                : 'No leg has been completed. This permanently deletes the game and all its scores. No statistics will be kept.'
+          }
+          confirmLabel={
+            managementAction === 'delete' ? 'Delete game' : 'Abandon game'
+          }
           busyLabel="Saving…"
           busy={submitting}
           error={actionError}
           onConfirm={handleManagement}
-          onCancel={() => { if (!submitting) { setManagementAction(null); setActionError(''); } }}
+          onCancel={() => {
+            if (!submitting) {
+              setManagementAction(null);
+              setActionError('');
+            }
+          }}
         />
       )}
     </div>

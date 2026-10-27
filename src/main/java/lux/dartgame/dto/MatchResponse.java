@@ -12,7 +12,13 @@ public record MatchResponse(long gameId, String owner, String gametype, int star
                             List<LegSummary> legs, Permissions permissions, int legsToWin) {
     public record Player(String username, int position, int points, int turns,
                          int bullseyes, int triple20s, int highestScore, int highestCheckout,
-                         float checkoutAccuracy, long legsWon) {
+                          long legsWon, ScoringStats scoringStats) {
+    }
+
+    public record ScoringStats(int dartsThrown, int firstNinePoints, int firstNineDarts,
+                               float firstNineAverage, int score40, int score60, int score80,
+                               int score100, int score120, int score140, int score160,
+                               int score180) {
     }
 
     public record LegSummary(long legId, int number, MatchStatus status, String winner,
@@ -20,6 +26,6 @@ public record MatchResponse(long gameId, String owner, String gametype, int star
     }
 
     public record Permissions(boolean canStart, boolean canScore,
-                              boolean canDelete, boolean canAbandon) {
+                              boolean canDelete, boolean canAbandon, boolean canUndo) {
     }
 }

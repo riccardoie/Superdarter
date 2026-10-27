@@ -47,7 +47,7 @@ function Segment({ number, index, onHit }) {
     >
       <path
         className={dark ? 'dartboard-single-dark' : 'dartboard-single-light'}
-        d={arcPath(8, 31, startAngle, endAngle)}
+        d={arcPath(10, 31, startAngle, endAngle)}
       />
       <path
         className={dark ? 'dartboard-single-dark' : 'dartboard-single-light'}
@@ -77,28 +77,52 @@ function Segment({ number, index, onHit }) {
 }
 
 export default function DartboardInput({ onHit, disabled }) {
+  const hit = (value, multiplier) => {
+    if (!disabled) onHit(value, multiplier);
+  };
+  const miss = () => hit(0, 1);
   return (
     <div
       className={`dartboard-input${disabled ? ' dartboard-input-disabled' : ''}`}
     >
-      <svg viewBox="0 0 220 220" aria-label="Clickable dartboard">
+      <svg viewBox="-20 -20 260 260" aria-label="Clickable dartboard">
+        <circle
+          cx="110"
+          cy="110"
+          r="116"
+          className="dartboard-miss-ring"
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          aria-label="Miss (0 points)"
+          aria-disabled={disabled}
+          onClick={miss}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              miss();
+            }
+          }}
+        />
+        <text x="110" y="-6" className="dartboard-miss-label">
+          MISS
+        </text>
         <circle cx="110" cy="110" r="81" className="dartboard-wire" />
         {SEGMENTS.map((number, index) => (
-          <Segment key={number} number={number} index={index} onHit={onHit} />
+          <Segment key={number} number={number} index={index} onHit={hit} />
         ))}
         <circle
           cx="110"
           cy="110"
-          r="8"
+          r="10"
           className="dartboard-outer-bull"
-          onClick={() => onHit(25, 1)}
+          onClick={() => hit(25, 1)}
         />
         <circle
           cx="110"
           cy="110"
           r="4"
           className="dartboard-inner-bull"
-          onClick={() => onHit(25, 2)}
+          onClick={() => hit(25, 2)}
         />
       </svg>
     </div>

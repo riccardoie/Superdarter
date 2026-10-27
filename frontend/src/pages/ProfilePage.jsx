@@ -58,7 +58,6 @@ export default function ProfilePage() {
     ['Average points', stats.avgPoints.toFixed(2)],
     ['Highest score', stats.highestScore],
     ['Highest checkout', stats.highestCheckout],
-    ['Checkout rate', `${(stats.avgCheckoutAccuracy * 100).toFixed(1)}%`],
     ['Triple 20s', stats.triple20s],
     ['Bullseyes', stats.bullseyes],
   ];

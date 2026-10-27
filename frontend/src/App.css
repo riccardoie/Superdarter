@@ -155,18 +155,18 @@
 
 /* ===== Home page ===== */
 .home-page {
-  --home-accent: #7dd3fc;
-  --home-ink: #0b1930;
-  --home-paper: #f8fbff;
-  --home-text-muted: #bed0e9;
-  --home-line: rgba(248, 251, 255, 0.24);
+  --home-accent: var(--color-primary);
+  --home-ink: var(--color-bg);
+  --home-paper: var(--color-text);
+  --home-text-muted: var(--color-text-muted);
+  --home-line: color-mix(in srgb, var(--color-text) 24%, transparent);
   min-height: 100%;
   margin: calc(var(--space-5) * -1);
   padding: clamp(24px, 5vw, 72px);
   color: var(--home-paper);
   background:
-    radial-gradient(circle at 75% 12%, rgba(21, 94, 239, 0.42), transparent 28rem),
-    linear-gradient(135deg, #0b1930 0%, #12365e 55%, #0d2440 100%);
+    radial-gradient(circle at 75% 12%, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 28rem),
+    linear-gradient(135deg, var(--color-bg) 0%, var(--color-primary-subtle) 55%, var(--color-surface) 100%);
   overflow: hidden;
 }
 
@@ -241,8 +241,8 @@
   position: relative;
   overflow: hidden;
   background:
-    linear-gradient(145deg, transparent 35%, rgba(125, 211, 252, 0.38)),
-    linear-gradient(25deg, #0b1930, #155eef);
+    linear-gradient(145deg, transparent 35%, color-mix(in srgb, var(--color-primary) 38%, transparent)),
+    linear-gradient(25deg, var(--color-bg), var(--color-primary-subtle));
 }
 
 .home-player-photo img {
@@ -694,25 +694,39 @@
 }
 
 .match-leg-history {
-  width: min(560px, 100%);
+  width: min(960px, 100%);
   margin: var(--space-5) auto 0;
   text-align: left;
 }
 
-.match-leg-history > .btn {
-  display: block;
-  margin-inline: auto;
+.match-leg-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.match-leg-toggle:hover {
+  background: var(--color-surface-hover);
+}
+
+.match-leg-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
 }
 
 .game-scoreboard-leg-wins {
-  font-size: 0.85rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-
-.match-leg-history summary {
-  padding: var(--space-2) 0;
-  cursor: pointer;
 }
 
 .game-leg-notice {
@@ -771,22 +785,39 @@
 
 .game-scoreboard-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 5rem 4rem minmax(0, 1.7fr) 3.5rem;
-  grid-template-areas: 'name legs turns checkout points';
+  grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1.7fr) 3.5rem;
+  grid-template-areas: 'name average legs turns checkout points';
   align-items: center;
   column-gap: clamp(0.5rem, 2vw, 1.5rem);
   padding: var(--space-4) var(--space-5);
   background: var(--color-surface);
   text-align: left;
   font-variant-numeric: tabular-nums;
+  font-size: 1.4rem;
 }
 
 .game-scoreboard-name {
   grid-area: name;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
+}
+
+.game-scoreboard-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-scoreboard-average {
+  grid-area: average;
+  font-size: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0.85;
 }
 
 .game-scoreboard-leg-wins {
@@ -808,6 +839,7 @@
 .game-scoreboard-checkout .game-checkout-suggestion {
   display: inline-block;
   max-width: 100%;
+  font-size: inherit;
 }
 
 .game-scoreboard-points {
@@ -828,19 +860,22 @@
 
 .game-scoreboard-turns {
   opacity: 0.7;
-  font-size: 0.85rem;
+  font-size: inherit;
 }
 
 .game-round-actions {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   gap: var(--space-3);
   width: 100%;
 }
 
 .game-round-actions > button {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  white-space: normal;
 }
 
 .game-round-panel {
@@ -876,12 +911,35 @@
   display: contents;
 }
 
+.game-scoreboard-name,
+.game-scoreboard-average,
+.game-scoreboard-leg-wins,
+.game-scoreboard-turns,
+.game-scoreboard-checkout .game-checkout-suggestion {
+  font-size: 1.4rem;
+  font-weight: 400;
+  opacity: 1;
+}
+
 @media (max-width: 600px) {
   .game-scoreboard-row {
     grid-template-columns: 1fr 1fr minmax(0, 1.5fr) 3rem;
-    grid-template-areas: 'name name name name' 'legs turns checkout points';
+    grid-template-areas: 'name name average average' 'legs turns checkout points';
     gap: var(--space-3) var(--space-2);
     padding: var(--space-3);
+  }
+
+  .game-scoreboard-average {
+    justify-self: end;
+    text-align: right;
+  }
+
+  .game-scoreboard-name,
+  .game-scoreboard-average,
+  .game-scoreboard-leg-wins,
+  .game-scoreboard-turns,
+  .game-scoreboard-checkout .game-checkout-suggestion {
+    font-size: 0.95rem;
   }
 
   .game-scoreboard-checkout {
@@ -891,9 +949,6 @@
     justify-content: center;
   }
 
-  .game-scoreboard-checkout .game-checkout-suggestion {
-    font-size: 0.8rem;
-  }
 }
 
 .game-shared-hint {
@@ -997,6 +1052,27 @@
   height: auto;
 }
 
+.dartboard-miss-ring {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 20;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.dartboard-miss-ring:hover,
+.dartboard-miss-ring:focus-visible {
+  stroke: var(--color-primary);
+}
+
+.dartboard-miss-label {
+  fill: var(--color-text);
+  font-size: 7px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
 .dartboard-segment,
 .dartboard-outer-bull,
 .dartboard-inner-bull {
@@ -1023,11 +1099,11 @@
 }
 .dartboard-double-dark,
 .dartboard-triple-dark {
-  fill: #0b725d;
+  fill: #b62d36;
 }
 .dartboard-double-light,
 .dartboard-triple-light {
-  fill: #b62d36;
+  fill: #0b725d;
 }
 .dartboard-wire {
   fill: none;
@@ -1161,6 +1237,68 @@
   text-align: right !important;
 }
 
+.game-stats-details-row > td {
+  padding-top: 0;
+  white-space: normal;
+}
+
+.game-stats-details summary {
+  list-style: none;
+  padding-block: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.game-stats-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.game-stats-details summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.game-stats-details-player {
+  font-weight: 400;
+}
+
+.game-stats-extra,
+.game-stats-counts {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.game-stats-extra {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.game-stats-counts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.game-stats-extra > div,
+.game-stats-counts > div {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--color-bg);
+  text-align: center;
+}
+
+.game-stats-details dt,
+.game-stats-details h3 {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.game-stats-details dd {
+  margin: var(--space-2) 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .game-stats-winner {
   background: var(--color-success-subtle);
 }
@@ -1218,7 +1356,8 @@
     padding: var(--space-4);
   }
 
-  .game-stats-section {
+  .game-stats-section,
+  .match-leg-toggle {
     padding: var(--space-4);
   }
 
@@ -1287,6 +1426,24 @@
     border-left: 0;
   }
 
+  .game-stats .game-stats-details-row {
+    margin-top: calc(-1 * var(--space-3));
+    border-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+
+  .game-stats .game-stats-details-row > td {
+    display: block;
+    background: var(--color-bg);
+    font-weight: 400;
+    text-align: left;
+  }
+
+  .game-stats-details-row > td::before {
+    display: none;
+  }
+
   .auth-page {
     place-items: start stretch;
   }
@@ -1317,12 +1474,30 @@
   }
 
   .game-page-header {
-    align-items: stretch;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
   }
 
-  .game-page-in-progress .game-page-header {
-    align-items: flex-start;
+  .game-page-header .game-back-link {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    min-width: 0;
+  }
+
+  .game-page-header .game-manage-button {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    margin-left: 0;
+  }
+
+  .game-page-header .game-format-label {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: left;
   }
 
   .modal-actions {
