@@ -17,7 +17,7 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (res.status === 401  && auth) {
+  if (res.status === 401 && auth) {
     unauthorizedHandler?.();
     throw new Error('Unauthorized');
   }
@@ -113,6 +113,13 @@ export function playRound({ gameId, username, score, legId, revision }) {
   return request(`/api/games/${gameId}/rounds`, {
     method: 'POST',
     body: { username, score, legId, revision },
+  });
+}
+
+export function undoRound({ gameId, revision }) {
+  return request(`/api/games/${gameId}/undo`, {
+    method: 'POST',
+    body: { revision },
   });
 }
 

@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lux.dartgame.dto.CreateGameRequest;
 import lux.dartgame.dto.MatchResponse;
 import lux.dartgame.dto.PlayedRoundRequest;
+import lux.dartgame.dto.UndoRoundRequest;
 import lux.dartgame.service.MatchService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -55,6 +56,13 @@ public class GameController {
                               final @RequestBody @Valid PlayedRoundRequest request,
                               final Principal principal) {
         return matches.play(id, request, principal.getName());
+    }
+
+    @PostMapping("{id}/undo")
+    public MatchResponse undo(final @PathVariable long id,
+                              final @RequestBody @Valid UndoRoundRequest request,
+                              final Principal principal) {
+        return matches.undo(id, request, principal.getName());
     }
 
     @PostMapping("{id}/abandon")
