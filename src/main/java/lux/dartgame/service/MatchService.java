@@ -292,7 +292,7 @@ public class MatchService {
                 .sorted(Comparator.comparingInt(LegPlayerStat::getPosition))
                 .map(s -> new MatchResponse.Player(s.getUser().getUserName(), s.getPosition(),
                         s.getPoints(), s.getTurn(), s.getBullseyes(), s.getTriple20s(),
-                        s.getHighestScore(), s.getHighestCheckout(), s.getCheckoutAccuracy(),
+                        s.getHighestScore(), s.getHighestCheckout(),
                         legsWon(match, s.getUser()), scoringStats(s))).toList();
     }
 

@@ -119,12 +119,6 @@ export default function GameStatsTable({
                         <dt>Bullseyes</dt>
                         <dd data-label="Bullseyes">{player.bullseyes}</dd>
                       </div>
-                      <div>
-                        <dt>Checkout accuracy</dt>
-                        <dd data-label="Checkout accuracy">
-                          <span title="Not yet available">—</span>
-                        </dd>
-                      </div>
                     </dl>
                     <h3>Score counts</h3>
                     <dl className="game-stats-counts">

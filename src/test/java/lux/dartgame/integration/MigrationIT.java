@@ -42,6 +42,12 @@ class MigrationIT extends AbstractIT {
                     assertThat(rows.getInt(1)).isEqualTo(501);
                     assertThat(rows.getBoolean(2)).isTrue();
                 }
+                try (var rows = sql.executeQuery("SELECT COUNT(*) FROM information_schema.columns "
+                        + "WHERE table_schema='" + schema + "' AND column_name IN "
+                        + "('checkout_accuracy','avg_checkout_accuracy')")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isZero();
+                }
                 sql.execute("INSERT INTO legs (match_id,leg_number,status) "
                         + "SELECT match_id,3,'PENDING' FROM matches");
                 sql.execute("INSERT INTO leg_player_stats (leg_id,user_id,position,points) "

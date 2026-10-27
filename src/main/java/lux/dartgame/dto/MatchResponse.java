@@ -12,7 +12,7 @@ public record MatchResponse(long gameId, String owner, String gametype, int star
                             List<LegSummary> legs, Permissions permissions, int legsToWin) {
     public record Player(String username, int position, int points, int turns,
                          int bullseyes, int triple20s, int highestScore, int highestCheckout,
-                          float checkoutAccuracy, long legsWon, ScoringStats scoringStats) {
+                          long legsWon, ScoringStats scoringStats) {
     }
 
     public record ScoringStats(int dartsThrown, int firstNinePoints, int firstNineDarts,

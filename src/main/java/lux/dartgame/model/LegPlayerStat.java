@@ -31,7 +31,6 @@ public class LegPlayerStat {
     private int bullseyes;
     private int highestScore;
     private int highestCheckout;
-    private float checkoutAccuracy;
     private boolean scoringStatsAvailable = true;
     private int dartsThrown;
     private int firstNinePoints;

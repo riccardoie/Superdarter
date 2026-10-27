@@ -116,10 +116,7 @@ for (const showTurns of [true, false]) {
     assert.match(html, /data-label="100\+">2<\/dd>/);
     assert.match(html, /data-label="180">1<\/dd>/);
     assert.match(html, /data-label="40\+">0<\/dd>/);
-    assert.match(
-      html,
-      /data-label="Checkout accuracy"><span title="Not yet available">—<\/span>/
-    );
+    assert.doesNotMatch(html, /Checkout accuracy/);
   });
 }
 
@@ -185,7 +182,7 @@ test('match stats handle unplayed legs and missing leg history', () => {
   );
 });
 
-test('leg table shows turns, average, highest, bullseyes and checkout placeholder', () => {
+test('leg table shows scoring stats without checkout accuracy', () => {
   const html = renderToStaticMarkup(
     createElement(GameStatsTable, {
       players: [
@@ -214,10 +211,7 @@ test('leg table shows turns, average, highest, bullseyes and checkout placeholde
   assert.match(html, /data-label="Bullseyes">3<\/dd>/);
   assert.match(html, /<details class="game-stats-details"><summary>More stats/);
   assert.match(html, /<dl class="game-stats-counts">/);
-  assert.match(
-    html,
-    /data-label="Checkout accuracy"><span title="Not yet available">—<\/span>/
-  );
+  assert.doesNotMatch(html, /Checkout accuracy/);
 });
 
 for (const showTurns of [true, false]) {
@@ -254,7 +248,7 @@ for (const showTurns of [true, false]) {
   });
 }
 
-test('winner table hides turns and keeps checkout accuracy as a placeholder', () => {
+test('winner table hides turns and checkout accuracy', () => {
   const html = renderToStaticMarkup(
     createElement(GameStatsTable, {
       players: [
@@ -264,7 +258,6 @@ test('winner table hides turns and keeps checkout accuracy as a placeholder', ()
           average: 75.25,
           highestScore: 180,
           bullseyes: 3,
-          checkoutAccuracy: 50,
           legsWon: 2,
         },
       ],
@@ -282,10 +275,7 @@ test('winner table hides turns and keeps checkout accuracy as a placeholder', ()
     /data-label="First 9 avg"><span title="Not available for this game">—<\/span>/
   );
   assert.match(html, /data-label="Average">75\.3<\/td>/);
-  assert.match(
-    html,
-    /data-label="Checkout accuracy"><span title="Not yet available">—<\/span>/
-  );
+  assert.doesNotMatch(html, /Checkout accuracy/);
 });
 
 before(async () => {

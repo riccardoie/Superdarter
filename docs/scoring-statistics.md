@@ -18,7 +18,6 @@ by the number of first-nine darts, not averaged equally across legs.
   busted turns do not. The UI retains the familiar `40+`, `60+`, etc. labels.
 - **180:** counts complete 180-point turns. The existing `triple20s` field still
   counts individual triple-20 hits and is not used as a 180 counter.
-- **Checkout accuracy:** deferred; it remains a frontend placeholder.
 
 Previously played legs cannot be reconstructed without a historical dart log.
 V6 marks their detailed statistics unavailable (`scoringStats: null` in the API),

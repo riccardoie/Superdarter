@@ -39,8 +39,6 @@ public class MatchStatisticsService {
             float average = stat.getTurn() == 0 ? 0f
                     : (float) (startingPoints - stat.getPoints()) / stat.getTurn();
             total.setAvgPoints((total.getAvgPoints() * (played - 1) + average) / played);
-            total.setAvgCheckoutAccuracy((total.getAvgCheckoutAccuracy() * (played - 1)
-                    + stat.getCheckoutAccuracy()) / played);
             total.setPlayedLegs(played);
             if (matchCompleted) {
                 total.setPlayedMatches(total.getPlayedMatches() + 1);
