@@ -1,1 +1,2 @@
+mvn checkstyle:check || exit 1
 npx lint-staged

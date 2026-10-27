@@ -62,7 +62,7 @@ try {
     Assert-Smoke $healthy 'Production image did not become healthy with the render profile'
 
     $registration = Request-Json '/api/auth/register' 'POST' @{
-        username = 'smoke-alice'; password = 'smoke-password-strong'; email = 'smoke@example.test'
+        username = 'smoke-alice'; password = 'smoke-password-strong1'; email = 'smoke@example.test'
     }
     $script:headers = @{ Authorization = "Bearer $($registration.token)" }
     $game = Request-Json '/api/games' 'POST' @{ gametype = '301'; players = @() }
