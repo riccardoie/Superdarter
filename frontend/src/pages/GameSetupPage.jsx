@@ -68,7 +68,7 @@ export default function GameSetupPage() {
   }
 
   return (
-    <div className="page game-page game-page-in-progress">
+    <div className="page game-page game-page-in-progress game-setup-page">
       <div className="game-page-header">
         <button
           type="button"
