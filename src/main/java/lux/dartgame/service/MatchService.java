@@ -34,6 +34,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.BeanUtils;
 import org.springframework.transaction.annotation.Transactional;
 
+import static lux.dartgame.service.CountdownRules.startingPoints;
+
 @Service
 public class MatchService {
     private final MatchRepository matches;
@@ -73,6 +75,23 @@ public class MatchService {
             participant.setUser(user);
             participant.setPosition(match.getParticipants().size());
             match.getParticipants().add(participant);
+        }
+        if (request.guests() != null) {
+            for (String guest : request.guests()) {
+                String name = guest.strip();
+                if (name.isBlank() || !names.add(name)) {
+                    throw new IllegalArgumentException(
+                            "Each player needs a unique name in this game");
+                }
+                MatchParticipant participant = new MatchParticipant();
+                participant.setMatch(match);
+                participant.setGuestName(name);
+                participant.setPosition(match.getParticipants().size());
+                match.getParticipants().add(participant);
+            }
+        }
+        if (match.getParticipants().size() > Constants.MAX_NR_OF_PLAYERS) {
+            throw new IllegalArgumentException("Maximum 10 players including the owner and guests");
         }
         createLeg(match);
         matches.saveAndFlush(match);
@@ -122,11 +141,12 @@ public class MatchService {
             throw new GameConflictException("Game state changed. Reload before scoring again");
         }
         LegPlayerStat stat = next(leg);
-        if (!stat.getUser().getUserName().equals(request.username())) {
+        if (!playerName(stat).equals(request.username())) {
             throw new InvalidTurnException();
         }
         CountdownRules.Result result = CountdownRules.evaluate(stat.getPoints(), request.score(),
-                Constants.FIRST_NINE_DARTS - stat.getFirstNineDarts());
+                Constants.FIRST_NINE_DARTS - stat.getFirstNineDarts(),
+                doubleOut(match.getGametype().getGametype()));
         PlayedRound round = new PlayedRound();
         round.setMatch(match);
         round.setPlayerStat(stat);
@@ -142,7 +162,7 @@ public class MatchService {
         stat.setHighestScore(Math.max(stat.getHighestScore(), result.scored()));
         if (result.won()) {
             stat.setHighestCheckout(Math.max(stat.getHighestCheckout(), result.scored()));
-            complete(match, leg, stat.getUser());
+            complete(match, leg, stat);
         }
         advanceRevision(match);
         // Persist a newly created next leg before exposing its generated ID to the client.
@@ -169,9 +189,11 @@ public class MatchService {
         match.getLegs().removeIf(l -> l.getLegNumber() > leg.getLegNumber());
         leg.setStatus(MatchStatus.IN_PROGRESS);
         leg.setWinner(null);
+        leg.setWinnerGuestName(null);
         leg.setFinishedAt(null);
         match.setStatus(MatchStatus.IN_PROGRESS);
         match.setWinner(null);
+        match.setWinnerGuestName(null);
         match.setFinishedAt(null);
         BeanUtils.copyProperties(round.getBeforeRound(), stat);
         advanceRevision(match);
@@ -218,13 +240,15 @@ public class MatchService {
         matches.delete(match);
     }
 
-    private void complete(final Match match, final Leg leg, final User winner) {
-        leg.setWinner(winner);
+    private void complete(final Match match, final Leg leg, final LegPlayerStat winner) {
+        leg.setWinner(winner.getUser());
+        leg.setWinnerGuestName(winner.getGuestName());
         leg.setStatus(MatchStatus.COMPLETED);
         leg.setFinishedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
-        boolean matchCompleted = legsWon(match, winner) >= match.getLegsToWin();
+        boolean matchCompleted = legsWon(match, playerName(winner)) >= match.getLegsToWin();
         if (matchCompleted) {
-            match.setWinner(winner);
+            match.setWinner(winner.getUser());
+            match.setWinnerGuestName(winner.getGuestName());
             match.setStatus(MatchStatus.COMPLETED);
             match.setFinishedAt(leg.getFinishedAt());
         }
@@ -235,9 +259,9 @@ public class MatchService {
         }
     }
 
-    private long legsWon(final Match match, final User user) {
+    private long legsWon(final Match match, final String name) {
         return match.getLegs().stream().filter(l -> l.getStatus() == MatchStatus.COMPLETED
-                && l.getWinner().getUserId() == user.getUserId()).count();
+                && name.equals(winnerName(l.getWinner(), l.getWinnerGuestName()))).count();
     }
 
     private void createLeg(final Match match) {
@@ -255,6 +279,7 @@ public class MatchService {
             LegPlayerStat stat = new LegPlayerStat();
             stat.setLeg(leg);
             stat.setUser(participant.getUser());
+            stat.setGuestName(participant.getGuestName());
             stat.setPosition(position);
             stat.setPoints(startingPoints(match.getGametype().getGametype()));
             leg.getPlayerStats().add(stat);
@@ -281,7 +306,7 @@ public class MatchService {
 
     private boolean participant(final Match match, final String actor) {
         return match.getParticipants().stream()
-                .anyMatch(p -> p.getUser().getUserName().equals(actor));
+                .anyMatch(p -> p.getUser() != null && p.getUser().getUserName().equals(actor));
     }
 
     private boolean admin(final String actor) {
@@ -306,10 +331,10 @@ public class MatchService {
         }
     }
 
-    private int startingPoints(final String gametype) {
+    private boolean doubleOut(final String gametype) {
         return switch (gametype) {
-            case Constants.GAMETYPE_301 -> Constants.TARGET_301;
-            case Constants.GAMETYPE_501 -> Constants.TARGET_501;
+            case Constants.GAMETYPE_301, Constants.GAMETYPE_501 -> true;
+            case Constants.GAMETYPE_301_SINGLE_OUT, Constants.GAMETYPE_501_SINGLE_OUT -> false;
             default -> throw new GameModeNotFoundException(gametype);
         };
     }
@@ -322,14 +347,15 @@ public class MatchService {
         boolean playing = match.getStatus() == MatchStatus.IN_PROGRESS;
         var players = players(match, leg);
         var legs = match.getLegs().stream().map(l -> new MatchResponse.LegSummary(
-                l.getLegId(), l.getLegNumber(), l.getStatus(), username(l.getWinner()),
+                l.getLegId(), l.getLegNumber(), l.getStatus(),
+                winnerName(l.getWinner(), l.getWinnerGuestName()),
                 players(match, l))).toList();
         return new MatchResponse(match.getMatchId(), match.getOwner().getUserName(),
                 match.getGametype().getGametype(),
                 startingPoints(match.getGametype().getGametype()), match.getStatus(),
                 match.getCreatedAt(), match.getStartedAt(), match.getFinishedAt(),
-                username(match.getWinner()),
-                pending || playing ? username(next(leg).getUser()) : null,
+                winnerName(match.getWinner(), match.getWinnerGuestName()),
+                pending || playing ? playerName(next(leg)) : null,
                 match.getRevision(), leg.getLegId(),
                 match.getLegsToWin() == 1 ? "SINGLE_LEG" : "FIRST_TO_LEGS", players, legs,
                 new MatchResponse.Permissions(member && pending, member && playing,
@@ -341,10 +367,11 @@ public class MatchService {
     private List<MatchResponse.Player> players(final Match match, final Leg leg) {
         return leg.getPlayerStats().stream()
                 .sorted(Comparator.comparingInt(LegPlayerStat::getPosition))
-                .map(s -> new MatchResponse.Player(s.getUser().getUserName(), s.getPosition(),
+                .map(s -> new MatchResponse.Player(playerName(s), s.getPosition(),
                         s.getPoints(), s.getTurn(), s.getBullseyes(), s.getTriple20s(),
                         s.getHighestScore(), s.getHighestCheckout(),
-                        legsWon(match, s.getUser()), scoringStats(s))).toList();
+                        legsWon(match, playerName(s)), scoringStats(s), s.getUser() == null))
+                .toList();
     }
 
     private MatchResponse.ScoringStats scoringStats(final LegPlayerStat stat) {
@@ -360,7 +387,11 @@ public class MatchService {
                 stat.getScore160(), stat.getScore180());
     }
 
-    private String username(final User user) {
-        return user == null ? null : user.getUserName();
+    private String playerName(final LegPlayerStat stat) {
+        return winnerName(stat.getUser(), stat.getGuestName());
+    }
+
+    private String winnerName(final User user, final String guestName) {
+        return user == null ? guestName : user.getUserName();
     }
 }

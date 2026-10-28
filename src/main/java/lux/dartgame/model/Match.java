@@ -42,6 +42,7 @@ public class Match {
     @ManyToOne
     @JoinColumn(name = "winner_id")
     private User winner;
+    private String winnerGuestName;
     // Checked under a database row lock for every command; prevents stale/replayed rounds.
     private long revision;
     private int legsToWin = 1;

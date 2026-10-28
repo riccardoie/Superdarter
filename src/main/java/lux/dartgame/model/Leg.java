@@ -38,6 +38,7 @@ public class Leg {
     @ManyToOne
     @JoinColumn(name = "winner_id")
     private User winner;
+    private String winnerGuestName;
     @OneToMany(mappedBy = "leg", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("position ASC")
     private List<LegPlayerStat> playerStats = new ArrayList<>();

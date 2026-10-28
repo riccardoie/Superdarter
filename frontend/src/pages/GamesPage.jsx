@@ -33,7 +33,11 @@ export default function GamesPage() {
         {availableGamemodes === null && !gamemodeError && (
           <p className="state-message">Loading gamemodes...</p>
         )}
-        {gamemodeError && <p className="error-message">Failed to load gamemodes: {gamemodeError}</p>}
+        {gamemodeError && (
+          <p className="error-message">
+            Failed to load gamemodes: {gamemodeError}
+          </p>
+        )}
         {availableGamemodes && (
           <div className="gamemode-picker-row">
             <select
@@ -55,9 +59,9 @@ export default function GamesPage() {
       {showCreate && (
         <CreateGame
           onClose={() => setShowCreate(false)}
-          onCreated={(game) => {
+          onContinue={(draft) => {
             setShowCreate(false);
-            navigate(`/games/${game.gameId}`);
+            navigate('/games/new', { state: { draft } });
           }}
         />
       )}

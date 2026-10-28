@@ -1,6 +1,7 @@
 import CheckoutSuggestion from './CheckoutSuggestion';
 import { standingsInStartingOrder } from '../matchFormat';
 import { matchStats } from '../gameStats';
+import { isSingleOut } from '../gameSetup';
 
 export default function GameScoreboard({ game, slots }) {
   const averages = new Map(
@@ -24,6 +25,9 @@ export default function GameScoreboard({ game, slots }) {
             <span className="game-scoreboard-name" title={player.username}>
               <span className="game-scoreboard-player-name">
                 {player.username}
+                {player.guest && (
+                  <small className="player-guest-label"> Guest</small>
+                )}
               </span>
             </span>
             <span
@@ -44,6 +48,7 @@ export default function GameScoreboard({ game, slots }) {
               <span className="game-scoreboard-checkout">
                 {[301, 501].includes(game.startingPoints) && (
                   <CheckoutSuggestion
+                    doubleOut={!isSingleOut(game.gametype)}
                     points={player.points}
                     slots={player.username === game.turn ? slots : []}
                   />

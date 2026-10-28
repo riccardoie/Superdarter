@@ -22,7 +22,8 @@ public class MatchParticipant {
     @JoinColumn(name = "match_id", nullable = false)
     private Match match;
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
+    private String guestName;
     private int position;
 }
