@@ -629,6 +629,12 @@
 }
 
 /* ===== Game page ===== */
+.player-guest-label {
+  color: var(--color-text-muted);
+  font-size: 0.75em;
+  font-weight: 400;
+}
+
 .game-format-picker {
   display: flex;
   flex-wrap: wrap;

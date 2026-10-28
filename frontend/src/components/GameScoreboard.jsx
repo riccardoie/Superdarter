@@ -25,6 +25,9 @@ export default function GameScoreboard({ game, slots }) {
             <span className="game-scoreboard-name" title={player.username}>
               <span className="game-scoreboard-player-name">
                 {player.username}
+                {player.guest && (
+                  <small className="player-guest-label"> Guest</small>
+                )}
               </span>
             </span>
             <span

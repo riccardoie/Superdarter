@@ -32,6 +32,7 @@ export default function GameSetupPage() {
         {
           gametype: draft.finishes[finish],
           players: draft.players,
+          guests: draft.guests ?? [],
           legsToWin: Number(legsToWin),
         },
         { createGame, startGame, deleteGame },
@@ -93,7 +94,18 @@ export default function GameSetupPage() {
               {username}
             </span>
           ))}
+          {(draft.guests ?? []).map((name) => (
+            <span key={name} className="player-chip">
+              {name} <small className="player-guest-label">Guest</small>
+            </span>
+          ))}
         </div>
+        {draft.guests?.length > 0 && (
+          <p className="player-hint">
+            Guests have no account. Their results stay in this match, not in a
+            profile.
+          </p>
+        )}
         <LegTargetPicker
           value={legsToWin}
           onChange={setLegsToWin}

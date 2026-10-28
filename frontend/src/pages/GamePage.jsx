@@ -321,7 +321,12 @@ export default function GamePage() {
         <div className="game-round-panel">
           <h2>Ready to play</h2>
           <p className="game-shared-hint">
-            {game.players.map((player) => player.username).join(' · ')}
+            {game.players
+              .map(
+                (player) =>
+                  `${player.username}${player.guest ? ' (guest)' : ''}`
+              )
+              .join(' · ')}
           </p>
           {game.permissions.canStart && (
             <button
