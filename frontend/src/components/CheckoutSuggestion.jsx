@@ -1,13 +1,24 @@
 import { previewCheckout } from '../checkout';
 
-export default function CheckoutSuggestion({ points, slots }) {
-  const preview = previewCheckout(points, slots);
+export default function CheckoutSuggestion({
+  points,
+  slots,
+  doubleOut = true,
+}) {
+  const preview = previewCheckout(points, slots, doubleOut);
   if (!preview?.route) return null;
-  const route = preview.route.map((dart) =>
-    `${dart.multiplier === 3 ? 't' : dart.multiplier === 2 ? 'd' : ''}${dart.number}`
-  ).join(' → ');
+  const route = preview.route
+    .map(
+      (dart) =>
+        `${dart.multiplier === 3 ? 't' : dart.multiplier === 2 ? 'd' : ''}${dart.number}`
+    )
+    .join(' → ');
   return (
-    <span className="game-checkout-suggestion" role="status" aria-label={`Checkout: ${route}`}>
+    <span
+      className="game-checkout-suggestion"
+      role="status"
+      aria-label={`Checkout: ${route}`}
+    >
       {route}
     </span>
   );

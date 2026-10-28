@@ -80,7 +80,8 @@ public class MatchStatisticsService {
             total.setWonMatches((int) matches.stream()
                     .filter(m -> m.getWinner().getUserId() == user.getUserId()).count());
             total.setAvgPoints((float) completed.stream().mapToDouble(s -> s.getTurn() == 0 ? 0
-                    : (double) (Integer.parseInt(s.getLeg().getMatch().getGametype().getGametype())
+                    : (double) (CountdownRules.startingPoints(
+                            s.getLeg().getMatch().getGametype().getGametype())
                     - s.getPoints()) / s.getTurn()).average().orElse(0));
             total.setTriple20s(completed.stream().mapToInt(LegPlayerStat::getTriple20s).sum());
             total.setBullseyes(completed.stream().mapToInt(LegPlayerStat::getBullseyes).sum());

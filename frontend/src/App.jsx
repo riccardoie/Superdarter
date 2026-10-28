@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import NotFoundPage from './pages/NotFoundPage';
 import GamesPage from './pages/GamesPage';
 import GamePage from './pages/GamePage';
+import GameSetupPage from './pages/GameSetupPage';
 import ProfilePage from './pages/ProfilePage';
 import AppLayout from './components/AppLayout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -25,11 +26,9 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               {/* Pages with topbar+sidemenu, log in required*/}
               <Route path="/games" element={<GamesPage />} />
+              <Route path="/games/new" element={<GameSetupPage />} />
               <Route path="/profile" element={<ProfilePage />} />
-              <Route
-                path="/games/:gameId"
-                element={<GamePage />}
-              />
+              <Route path="/games/:gameId" element={<GamePage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Route>

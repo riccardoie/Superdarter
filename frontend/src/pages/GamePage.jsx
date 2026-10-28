@@ -18,6 +18,7 @@ import CompletedLegs from '../components/CompletedLegs';
 import { matchFormatLabel } from '../matchFormat';
 import { matchStats } from '../gameStats';
 import { isMatchWinningRound } from '../gameCompletion';
+import { isSingleOut } from '../gameSetup';
 
 // Array of all numbers from 1-20+25
 const DART_VALUES = Array.from({ length: 20 }, (_, i) => i + 1).concat(25);
@@ -256,7 +257,8 @@ export default function GamePage() {
           &larr; Back to Games
         </Link>
         <span className="game-format-label">
-          {game.gametype} · {matchFormatLabel(game.legsToWin)} · Double-out
+          {game.startingPoints} · {matchFormatLabel(game.legsToWin)} ·{' '}
+          {isSingleOut(game.gametype) ? 'Single-out' : 'Double-out'}
         </span>
         {(game.permissions.canDelete || game.permissions.canAbandon) && (
           <button
@@ -444,7 +446,10 @@ export default function GamePage() {
           <p className="game-shared-hint">
             Playing on one device — each player enters their throws when it's
             their turn. Enter 1–3 darts in order; leave unused darts blank.
-            Finish on a double. Register an empty round if all darts missed.
+            {isSingleOut(game.gametype)
+              ? 'Reach exactly zero with any dart.'
+              : 'Finish on a double.'}{' '}
+            Register an empty round if all darts missed.
           </p>
         </div>
       ) : (
