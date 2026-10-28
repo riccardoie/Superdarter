@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react';
-import { createGame, getAllGamemodes, getUsername, MAX_TOTAL_PLAYERS } from '../api';
-import LegTargetPicker from './LegTargetPicker';
+import { getAllGamemodes, getUsername, MAX_TOTAL_PLAYERS } from '../api';
+import { countdownModes } from '../gameSetup';
 
 const MAX_ADDED_PLAYERS = MAX_TOTAL_PLAYERS - 1;
 
-export default function CreateGame({ onClose, onCreated }) {
+export default function CreateGame({ onClose, onContinue }) {
   const [available, setAvailable] = useState(null);
   const [gametype, setGametype] = useState('501');
-  const [legsToWin, setLegsToWin] = useState('1');
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   const [players, setPlayers] = useState([]);
   const [playerInput, setPlayerInput] = useState('');
@@ -19,7 +17,15 @@ export default function CreateGame({ onClose, onCreated }) {
 
   useEffect(() => {
     getAllGamemodes()
-      .then((data) => setAvailable(data.filter((g) => ['301', '501'].includes(g.gamemode))))
+      .then((data) => {
+        const modes = countdownModes(data);
+        setAvailable(modes);
+        setGametype(
+          modes.find((mode) => mode.gamemode === '501')?.gamemode ??
+            modes[0]?.gamemode ??
+            ''
+        );
+      })
       .catch((err) => setError(err.message));
   }, []);
 
@@ -38,7 +44,9 @@ export default function CreateGame({ onClose, onCreated }) {
       return;
     }
     if (players.length >= MAX_ADDED_PLAYERS) {
-      setPlayerError(`Max ${MAX_TOTAL_PLAYERS} players in total (including you)`);
+      setPlayerError(
+        `Max ${MAX_TOTAL_PLAYERS} players in total (including you)`
+      );
       return;
     }
     setPlayers([...players, username]);
@@ -51,26 +59,14 @@ export default function CreateGame({ onClose, onCreated }) {
     setPlayerError('');
   }
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
-    if (submitting) return;
-    setSubmitting(true);
-    setError('');
-    try {
-      const game = await createGame({ gametype, players, legsToWin: Number(legsToWin) });
-      onCreated(game);
-    } catch (err) {
-      setError(
-        err.status === 404
-          ? 'One or more usernames not found — check the spelling'
-          : err.message
-      );
-      setSubmitting(false);
-    }
+    const mode = available?.find((mode) => mode.gamemode === gametype);
+    if (mode) onContinue({ gametype, players, finishes: mode.finishes });
   }
 
   return (
-    <div className="modal-overlay" onClick={submitting ? undefined : onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal"
         role="dialog"
@@ -84,11 +80,17 @@ export default function CreateGame({ onClose, onCreated }) {
             <p className="state-message">Loading gamemodes...</p>
           )}
           {error && <p className="error-message">{error}</p>}
+          {available?.length === 0 && (
+            <p className="state-message">No supported gamemodes available.</p>
+          )}
           {available && (
             <div className="gamemode-picker">
               <div className="gamemode-picker-row">
-                <select value={gametype} onChange={(event) => setGametype(event.target.value)}
-                  aria-label="Game type" disabled={submitting}>
+                <select
+                  value={gametype}
+                  onChange={(event) => setGametype(event.target.value)}
+                  aria-label="Game type"
+                >
                   {available.map((gametype) => (
                     <option key={gametype.gamemode} value={gametype.gamemode}>
                       {gametype.gamemode}
@@ -96,13 +98,8 @@ export default function CreateGame({ onClose, onCreated }) {
                   ))}
                 </select>
               </div>
-              <p className="player-hint">Double-out on every leg.</p>
             </div>
           )}
-          <LegTargetPicker value={legsToWin} onChange={setLegsToWin} disabled={submitting} />
-          <p className="player-hint" id="legs-to-win-hint">
-            Choose 1 for a single leg, or 2–99 for a first-to-wins game. Starting player rotates each leg.
-          </p>
           <div className="player-picker">
             <div className="player-picker-header">
               <h3>Players</h3>
@@ -111,7 +108,9 @@ export default function CreateGame({ onClose, onCreated }) {
               </span>
             </div>
             <div className="player-chips">
-              <span className="player-chip player-chip-owner">{owner} (you)</span>
+              <span className="player-chip player-chip-owner">
+                {owner} (you)
+              </span>
               {players.map((username, index) => (
                 <span key={index} className="player-chip">
                   {username}
@@ -152,15 +151,15 @@ export default function CreateGame({ onClose, onCreated }) {
             </p>
           </div>
           <div className="modal-actions">
-            <button className="btn" type="button" onClick={onClose} disabled={submitting}>
+            <button className="btn" type="button" onClick={onClose}>
               Cancel
             </button>
             <button
               className="btn btn-primary"
               type="submit"
-              disabled={!available?.length || submitting}
+              disabled={!available?.length}
             >
-              {submitting ? 'Creating…' : 'Create game'}
+              Continue
             </button>
           </div>
         </form>

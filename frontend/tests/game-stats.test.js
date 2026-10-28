@@ -16,6 +16,7 @@ let GameStatsTable;
 let CheckoutSuggestion;
 let GameCard;
 let CreateGame;
+let GameSetupPage;
 let MatchProgress;
 let LegTargetPicker;
 let GameScoreboard;
@@ -293,6 +294,9 @@ before(async () => {
   ({ default: CreateGame } = await server.ssrLoadModule(
     '/src/components/CreateGame.jsx'
   ));
+  ({ default: GameSetupPage } = await server.ssrLoadModule(
+    '/src/pages/GameSetupPage.jsx'
+  ));
   ({ default: MatchProgress } = await server.ssrLoadModule(
     '/src/components/MatchProgress.jsx'
   ));
@@ -503,14 +507,49 @@ test('creation form automatically includes the owner in the ten-player limit', (
   );
   globalThis.localStorage = { getItem: () => `header.${payload}.signature` };
   const html = renderToStaticMarkup(
-    createElement(CreateGame, { onClose() {}, onCreated() {} })
+    createElement(CreateGame, { onClose() {}, onContinue() {} })
   );
   assert.match(html, /Create game/);
   assert.match(html, /alice \(you\)/);
   assert.match(html, /1 \/ 10/);
+  assert.match(html, /Continue/);
+  assert.doesNotMatch(html, /First to win|type="number"|Double-out/);
+  assert.doesNotMatch(html, /session/i);
+  globalThis.localStorage = { getItem: () => null };
+});
+
+test('game setup shows final details without creating or starting anything', () => {
+  const payload = Buffer.from(JSON.stringify({ sub: 'alice' })).toString(
+    'base64url'
+  );
+  globalThis.localStorage = { getItem: () => `header.${payload}.signature` };
+  globalThis.fetch = () => assert.fail('setup must not send any requests');
+  const draft = {
+    gametype: '501',
+    players: ['bob', 'carol'],
+    finishes: { double: '501', single: '501 Single Out' },
+  };
+  const html = renderToStaticMarkup(
+    createElement(
+      MemoryRouter,
+      {
+        initialEntries: [{ pathname: '/games/new', state: { draft } }],
+      },
+      createElement(GameSetupPage)
+    )
+  );
+  assert.match(html, /Ready to play 501/);
+  assert.match(html, /alice \(you\)/);
+  assert.match(html, /bob/);
+  assert.match(html, /carol/);
   assert.match(html, /First to win/);
   assert.match(html, /type="number" min="1" max="99" step="1" required=""/);
-  assert.doesNotMatch(html, /session/i);
+  assert.match(html, /Single out/);
+  assert.match(html, /Double out/);
+  assert.match(html, /type="radio" name="finish" checked="" value="double"/);
+  assert.match(html, /Cancel setup/);
+  assert.match(html, /Start game/);
+  assert.match(html, /Nothing is saved until you press Start game/);
   globalThis.localStorage = { getItem: () => null };
 });
 
@@ -772,4 +811,19 @@ test('checkout suggestion renders compact routes and hides unavailable checkouts
   assert.equal(render(40, [{ value: 20, multiplier: 3 }, empty, empty]), '');
   assert.equal(render(301, Array(3).fill({ value: 20, multiplier: 3 })), '');
   assert.equal(render(undefined, [empty, empty, empty]), '');
+});
+
+test('single-out scoreboard offers the last single instead of hiding the checkout', () => {
+  const game = {
+    gametype: '301 Single Out',
+    startingPoints: 301,
+    turn: 'alice',
+    players: [{ username: 'alice', points: 1, turns: 5 }],
+  };
+  const render = (gametype) =>
+    renderToStaticMarkup(
+      createElement(GameScoreboard, { game: { ...game, gametype }, slots: [] })
+    );
+  assert.match(render('301 Single Out'), /aria-label="Checkout: 1"/);
+  assert.doesNotMatch(render('301'), /aria-label="Checkout:/);
 });

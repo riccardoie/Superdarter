@@ -56,3 +56,23 @@ test('ended games and unknown current players do not request confirmation', () =
     false
   );
 });
+
+test('single-out match wins use the selected rule, not double-out prediction', () => {
+  for (const gametype of ['301 Single Out', '501 Single Out']) {
+    const singleOut = {
+      ...game,
+      gametype,
+      players: [{ username: 'alice', points: 1, legsWon: 0 }],
+    };
+    assert.equal(isMatchWinningRound(singleOut, [dart(1), dart(20, 3)]), true);
+    assert.equal(
+      isMatchWinningRound({ ...singleOut, legsToWin: 2 }, [dart(1)]),
+      false
+    );
+    assert.equal(isMatchWinningRound(singleOut, [dart(2)]), false);
+    assert.equal(
+      isMatchWinningRound({ ...singleOut, gametype: '301' }, [dart(1)]),
+      false
+    );
+  }
+});
