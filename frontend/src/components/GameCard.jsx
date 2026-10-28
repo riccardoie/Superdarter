@@ -24,7 +24,10 @@ export default function GameCard({ game }) {
       </p>
       <p className="match-card-players">
         {game.players
-          .map((player) => `${player.username}: ${player.legsWon ?? 0}`)
+          .map(
+            (player) =>
+              `${player.username}${player.guest ? ' (guest)' : ''}: ${player.legsWon ?? 0}`
+          )
           .join(' · ')}
       </p>
       {game.winner && (

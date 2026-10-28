@@ -24,6 +24,7 @@ public class MatchStatisticsService {
     // Each completed leg counts once; only the deciding leg awards match participation/wins.
     public void completeLeg(final Leg leg, final int startingPoints, final boolean matchCompleted) {
         for (LegPlayerStat stat : leg.getPlayerStats().stream()
+                .filter(s -> s.getUser() != null)
                 .sorted(Comparator.comparingLong(s -> s.getUser().getUserId())).toList()) {
             User user = users.findForUpdate(stat.getUser().getUserId()).orElseThrow();
             PlayerStat total = user.getStats();
@@ -44,7 +45,7 @@ public class MatchStatisticsService {
             if (matchCompleted) {
                 total.setPlayedMatches(total.getPlayedMatches() + 1);
             }
-            if (leg.getWinner().getUserId() == user.getUserId()) {
+            if (won(leg.getWinner(), user)) {
                 total.setWonLegs(total.getWonLegs() + 1);
                 if (matchCompleted) {
                     total.setWonMatches(total.getWonMatches() + 1);
@@ -61,6 +62,7 @@ public class MatchStatisticsService {
     // Rebuild from retained completed legs so undo can also lower personal-best records safely.
     public void rebuildTotals(final Leg reopened) {
         for (LegPlayerStat participant : reopened.getPlayerStats().stream()
+                .filter(s -> s.getUser() != null)
                 .sorted(Comparator.comparingLong(s -> s.getUser().getUserId())).toList()) {
             User user = users.findForUpdate(participant.getUser().getUserId()).orElseThrow();
             PlayerStat total = user.getStats();
@@ -72,13 +74,13 @@ public class MatchStatisticsService {
                     LegPlayerStat.class).setParameter("user", user.getUserId()).getResultList();
             total.setPlayedLegs(completed.size());
             total.setWonLegs((int) completed.stream()
-                    .filter(s -> s.getLeg().getWinner().getUserId() == user.getUserId()).count());
+                    .filter(s -> won(s.getLeg().getWinner(), user)).count());
             var matches = completed.stream().map(s -> s.getLeg().getMatch())
                     .filter(m -> m.getStatus() == lux.dartgame.model.MatchStatus.COMPLETED)
                     .distinct().toList();
             total.setPlayedMatches(matches.size());
             total.setWonMatches((int) matches.stream()
-                    .filter(m -> m.getWinner().getUserId() == user.getUserId()).count());
+                    .filter(m -> won(m.getWinner(), user)).count());
             total.setAvgPoints((float) completed.stream().mapToDouble(s -> s.getTurn() == 0 ? 0
                     : (double) (CountdownRules.startingPoints(
                             s.getLeg().getMatch().getGametype().getGametype())
@@ -90,5 +92,9 @@ public class MatchStatisticsService {
             total.setHighestCheckout(completed.stream().mapToInt(LegPlayerStat::getHighestCheckout)
                     .max().orElse(0));
         }
+    }
+
+    private boolean won(final User winner, final User user) {
+        return winner != null && winner.getUserId() == user.getUserId();
     }
 }

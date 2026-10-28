@@ -513,6 +513,8 @@ test('creation form automatically includes the owner in the ten-player limit', (
   assert.match(html, /alice \(you\)/);
   assert.match(html, /1 \/ 10/);
   assert.match(html, /Continue/);
+  assert.match(html, /Player type/);
+  assert.match(html, /Guest player/);
   assert.doesNotMatch(html, /First to win|type="number"|Double-out/);
   assert.doesNotMatch(html, /session/i);
   globalThis.localStorage = { getItem: () => null };
@@ -527,6 +529,7 @@ test('game setup shows final details without creating or starting anything', () 
   const draft = {
     gametype: '501',
     players: ['bob', 'carol'],
+    guests: ['Guest One'],
     finishes: { double: '501', single: '501 Single Out' },
   };
   const html = renderToStaticMarkup(
@@ -542,6 +545,8 @@ test('game setup shows final details without creating or starting anything', () 
   assert.match(html, /alice \(you\)/);
   assert.match(html, /bob/);
   assert.match(html, /carol/);
+  assert.match(html, /Guest One/);
+  assert.match(html, /Their results stay in this match, not in a profile/);
   assert.match(html, /First to win/);
   assert.match(html, /type="number" min="1" max="99" step="1" required=""/);
   assert.match(html, /Single out/);
@@ -569,6 +574,63 @@ test('first-to creation sends the selected win target', async () => {
   assert.equal(game.legsToWin, 3);
   assert.equal(matchFormatLabel(game.legsToWin), 'First to 3 legs');
   assert.equal(matchFormatLabel(1), 'Single leg');
+});
+
+test('guest creation keeps guests separate from account usernames in the API request', async () => {
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/games');
+    assert.deepEqual(JSON.parse(options.body), {
+      gametype: '301',
+      players: [{ username: 'bob' }],
+      guests: ['Guest One'],
+      legsToWin: 2,
+    });
+    return new Response(JSON.stringify({ gameId: 8 }));
+  };
+  await api.createGame({
+    gametype: '301',
+    players: ['bob'],
+    guests: ['Guest One'],
+    legsToWin: 2,
+  });
+});
+
+test('guest markers survive scoreboard, history card and match statistics rendering', () => {
+  const player = {
+    username: 'Guest One',
+    guest: true,
+    points: 40,
+    turns: 2,
+    legsWon: 1,
+  };
+  const game = {
+    gameId: 8,
+    gametype: '301',
+    startingPoints: 301,
+    status: 'COMPLETED',
+    winner: 'Guest One',
+    createdAt: '2026-10-28T12:00:00Z',
+    players: [player],
+  };
+  const scoreboard = renderToStaticMarkup(
+    createElement(GameScoreboard, { game, slots: [] })
+  );
+  assert.match(scoreboard, /Guest One/);
+  assert.match(scoreboard, /player-guest-label/);
+  const table = renderToStaticMarkup(
+    createElement(GameStatsTable, {
+      players: [player],
+      startingPoints: 301,
+      winner: 'Guest One',
+    })
+  );
+  assert.match(table, /player-guest-label/);
+  assert.match(table, /game-stats-winner/);
+  const card = renderToStaticMarkup(
+    createElement(MemoryRouter, null, createElement(GameCard, { game }))
+  );
+  assert.match(card, /Guest One \(guest\): 1/);
+  assert.match(card, /Winner: Guest One/);
 });
 
 test('leg target has separate step buttons, increments correctly and respects limits', () => {

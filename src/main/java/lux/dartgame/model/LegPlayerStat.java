@@ -22,8 +22,9 @@ public class LegPlayerStat {
     @JoinColumn(name = "leg_id", nullable = false)
     private Leg leg;
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
+    private String guestName;
     private int position;
     private int points;
     private int turn;

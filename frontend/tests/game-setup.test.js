@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   countdownModes,
   isSingleOut,
+  playerNameError,
   startDraftGame,
 } from '../src/gameSetup.js';
 
@@ -42,7 +43,29 @@ test('offers only finishing rules actually returned by the backend', () => {
   assert.equal(isSingleOut('501'), false);
 });
 
-const config = { gametype: '501 Single Out', players: ['bob'], legsToWin: 3 };
+const config = {
+  gametype: '501 Single Out',
+  players: ['bob'],
+  guests: ['Guest One'],
+  legsToWin: 3,
+};
+
+test('registered players and guests share unique names and one player limit', () => {
+  const names = {
+    owner: 'alice',
+    players: ['bob'],
+    guests: ['Guest One'],
+    maxPlayers: 10,
+  };
+  assert.equal(playerNameError('Guest Two', names), '');
+  for (const name of ['', 'alice', 'bob', 'Guest One', 'x'.repeat(256)]) {
+    assert.notEqual(playerNameError(name, names), '');
+  }
+  assert.match(
+    playerNameError('Guest Two', { ...names, maxPlayers: 3 }),
+    /Max 3 players/
+  );
+});
 
 test('draft selection is local; starting creates the configured game then starts its ID', async () => {
   const calls = [];

@@ -63,7 +63,12 @@ export default function GameStatsTable({
                   player.username === winner ? 'game-stats-winner' : undefined
                 }
               >
-                <td data-label="Player">{player.username}</td>
+                <td data-label="Player">
+                  {player.username}
+                  {player.guest && (
+                    <small className="player-guest-label"> Guest</small>
+                  )}
+                </td>
                 {showLegsWon && (
                   <td className="game-stats-num" data-label="Legs won">
                     {player.legsWon ?? 0}

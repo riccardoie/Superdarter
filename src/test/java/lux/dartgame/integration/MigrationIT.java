@@ -9,6 +9,56 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MigrationIT extends AbstractIT {
     @Test
+    void guestMigrationPreservesRegisteredHistoryAndEnforcesExclusiveIdentities() throws Exception {
+        String schema = "guest_upgrade_test";
+        try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(),
+                POSTGRES.getUsername(), POSTGRES.getPassword());
+             var sql = connection.createStatement()) {
+            sql.execute("CREATE SCHEMA " + schema);
+            try {
+                Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                        POSTGRES.getPassword()).defaultSchema(schema).target("9").load().migrate();
+                sql.execute("SET search_path TO " + schema);
+                sql.execute("INSERT INTO users (user_name,password,email,role_id) "
+                        + "SELECT 'existing','hash','old@test',role_id FROM roles WHERE role='USER'");
+                sql.execute("INSERT INTO matches (owner_id,gametype_id,status,created_at,winner_id) "
+                        + "SELECT user_id,gametype_id,'COMPLETED',now(),user_id FROM users "
+                        + "CROSS JOIN gametypes WHERE gametype='301'");
+                sql.execute("INSERT INTO match_participants (match_id,user_id,position) "
+                        + "SELECT match_id,user_id,0 FROM matches CROSS JOIN users");
+                sql.execute("INSERT INTO legs (match_id,leg_number,status,winner_id) "
+                        + "SELECT match_id,1,'COMPLETED',user_id FROM matches CROSS JOIN users");
+                sql.execute("INSERT INTO leg_player_stats (leg_id,user_id,position,points) "
+                        + "SELECT leg_id,user_id,0,0 FROM legs CROSS JOIN users");
+                Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                        POSTGRES.getPassword()).defaultSchema(schema).load().migrate();
+                try (var rows = sql.executeQuery("SELECT m.winner_id,m.winner_guest_name,"
+                        + "s.user_id,s.guest_name,s.points FROM matches m JOIN legs l USING(match_id) "
+                        + "JOIN leg_player_stats s USING(leg_id)")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getLong(1)).isEqualTo(rows.getLong(3)).isPositive();
+                    assertThat(rows.getString(2)).isNull();
+                    assertThat(rows.getString(4)).isNull();
+                    assertThat(rows.getInt(5)).isZero();
+                }
+                sql.execute("INSERT INTO match_participants (match_id,guest_name,position) "
+                        + "SELECT match_id,'Guest',1 FROM matches");
+                assertThatThrownBy(() -> sql.execute("INSERT INTO match_participants "
+                        + "(match_id,position) SELECT match_id,2 FROM matches"))
+                        .hasMessageContaining("participant_identity_check");
+                assertThatThrownBy(() -> sql.execute("INSERT INTO match_participants "
+                        + "(match_id,user_id,guest_name,position) SELECT match_id,user_id,'Other',2 "
+                        + "FROM matches CROSS JOIN users"))
+                        .hasMessageContaining("participant_identity_check");
+                sql.execute("UPDATE matches SET winner_id=NULL,winner_guest_name='Guest'");
+                sql.execute("UPDATE legs SET winner_id=NULL,winner_guest_name='Guest'");
+            } finally {
+                sql.execute("DROP SCHEMA " + schema + " CASCADE");
+            }
+        }
+    }
+
+    @Test
     void singleOutMigrationAddsModesWithoutChangingExistingIds() throws Exception {
         String schema = "single_out_upgrade_test";
         try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(),
@@ -26,7 +76,8 @@ class MigrationIT extends AbstractIT {
                     existingId = rows.getLong(1);
                 }
                 var flyway = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(),
-                        POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema).load();
+                        POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema)
+                        .target("9").load();
                 assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
                 assertThat(flyway.migrate().migrationsExecuted).isZero();
                 try (var rows = sql.executeQuery("SELECT gametype FROM gametypes ORDER BY gametype")) {
