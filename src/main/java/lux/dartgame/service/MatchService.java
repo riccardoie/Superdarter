@@ -34,6 +34,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.BeanUtils;
 import org.springframework.transaction.annotation.Transactional;
 
+import static lux.dartgame.service.CountdownRules.startingPoints;
+
 @Service
 public class MatchService {
     private final MatchRepository matches;
@@ -126,7 +128,8 @@ public class MatchService {
             throw new InvalidTurnException();
         }
         CountdownRules.Result result = CountdownRules.evaluate(stat.getPoints(), request.score(),
-                Constants.FIRST_NINE_DARTS - stat.getFirstNineDarts());
+                Constants.FIRST_NINE_DARTS - stat.getFirstNineDarts(),
+                doubleOut(match.getGametype().getGametype()));
         PlayedRound round = new PlayedRound();
         round.setMatch(match);
         round.setPlayerStat(stat);
@@ -306,10 +309,10 @@ public class MatchService {
         }
     }
 
-    private int startingPoints(final String gametype) {
+    private boolean doubleOut(final String gametype) {
         return switch (gametype) {
-            case Constants.GAMETYPE_301 -> Constants.TARGET_301;
-            case Constants.GAMETYPE_501 -> Constants.TARGET_501;
+            case Constants.GAMETYPE_301, Constants.GAMETYPE_501 -> true;
+            case Constants.GAMETYPE_301_SINGLE_OUT, Constants.GAMETYPE_501_SINGLE_OUT -> false;
             default -> throw new GameModeNotFoundException(gametype);
         };
     }

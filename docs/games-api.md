@@ -32,7 +32,9 @@ The authenticated owner is automatically added once and starts first. Other
 players retain request order. Duplicate names are deduplicated. There may be at
 most **10 distinct participants including the owner**. Omit `players` or pass `[]`
 for solo play. All usernames must already exist. The roster cannot be edited.
-Only 301 and 501 are playable; unknown/unsupported modes return 404.
+Playable modes are `301`, `501`, `301 Single Out`, and `501 Single Out`;
+unknown/unsupported modes return 404. The original `301` and `501` require a
+double to finish. Single Out modes allow any valid dart to reach exactly zero.
 
 Omitting `legsToWin` (or passing null) defaults to 1 for backward compatibility.
 Zero, negative, and targets above 99 return 400. The target is fixed for the match.
@@ -80,10 +82,10 @@ participant's overall standing, derived from completed legs.
 
 ## First-to progression
 
-After a double-out, the leg is completed and its winner gains one leg win. If that
+After a valid checkout, the leg is completed and its winner gains one leg win. If that
 player has reached `legsToWin`, the match completes. Otherwise a new leg is created
 and started in the same transaction. Remaining scores, turns, and leg-specific
-statistics reset; previous legs stay intact. All legs use the same 301/501 rules.
+statistics reset; previous legs stay intact. All legs use the selected mode's rules.
 
 The starter rotates through the original participant order: first participant in
 leg 1, second in leg 2, and so on, wrapping around. Rotation is independent of who
@@ -104,7 +106,9 @@ Administrators who are not participants cannot score or start games.
 
 - `score` contains 0–3 ordered number/multiplier pairs. `""` means all misses.
 - `0 1` explicitly records a miss. Unthrown darts need not be supplied.
-- The whole turn busts on a negative score, leaving 1, or zero without a double.
+- The whole turn busts on a negative remaining score in every mode.
+- In `301` and `501`, leaving 1 or reaching zero without a double also busts.
+- In Single Out modes, leaving 1 is allowed and any valid dart can finish at zero.
 - Processing stops at a checkout or bust. Later supplied darts do not affect stats.
 - Busts advance the turn but preserve the turn's initial score.
 - Highest round score uses credited points (zero on bust); hit counts include
@@ -118,7 +122,7 @@ retry a round automatically using a new revision. Start is idempotent while in p
 ## Lifecycle, history, statistics
 
 ```text
-PENDING --start--> IN_PROGRESS --double-out--> COMPLETED
+PENDING --start--> IN_PROGRESS --checkout----> COMPLETED
                               --abandon----> ABANDONED
 PENDING --delete--> removed
 ```

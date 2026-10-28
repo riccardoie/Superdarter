@@ -1,11 +1,20 @@
 package lux.dartgame.service;
 
 import lux.dartgame.constants.Constants;
+import lux.dartgame.exception.GameModeNotFoundException;
 import lux.dartgame.exception.InvalidScoreException;
 
-/** Stateless double-out rules, independent of match persistence and progression. */
+/** Stateless countdown rules, independent of match persistence and progression. */
 public final class CountdownRules {
     private CountdownRules() {
+    }
+
+    public static int startingPoints(final String gametype) {
+        return switch (gametype) {
+            case Constants.GAMETYPE_301, Constants.GAMETYPE_301_SINGLE_OUT -> Constants.TARGET_301;
+            case Constants.GAMETYPE_501, Constants.GAMETYPE_501_SINGLE_OUT -> Constants.TARGET_501;
+            default -> throw new GameModeNotFoundException(gametype);
+        };
     }
 
     public record Result(int remaining, int scored, int triples, int bullseyes,
@@ -19,6 +28,11 @@ public final class CountdownRules {
 
     public static Result evaluate(final int startingPoints, final String score,
                                   final int firstNineDartsLeft) {
+        return evaluate(startingPoints, score, firstNineDartsLeft, true);
+    }
+
+    public static Result evaluate(final int startingPoints, final String score,
+                                  final int firstNineDartsLeft, final boolean doubleOut) {
         int[] darts = parse(score);
         int remaining = startingPoints;
         int triples = 0;
@@ -41,7 +55,8 @@ public final class CountdownRules {
             if (number == Constants.BULLSEYE_VALUE) {
                 bullseyes++;
             }
-            if (remaining < 0 || remaining == 1 || (remaining == 0 && multiplier != 2)) {
+            if (remaining < 0 || (doubleOut
+                    && (remaining == 1 || (remaining == 0 && multiplier != 2)))) {
                 bust = true;
                 break;
             }

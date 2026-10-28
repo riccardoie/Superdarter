@@ -9,6 +9,44 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MigrationIT extends AbstractIT {
     @Test
+    void singleOutMigrationAddsModesWithoutChangingExistingIds() throws Exception {
+        String schema = "single_out_upgrade_test";
+        try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(),
+                POSTGRES.getUsername(), POSTGRES.getPassword());
+             var sql = connection.createStatement()) {
+            sql.execute("CREATE SCHEMA " + schema);
+            try {
+                Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                        POSTGRES.getPassword()).defaultSchema(schema).target("8")
+                        .load().migrate();
+                sql.execute("SET search_path TO " + schema);
+                long existingId;
+                try (var rows = sql.executeQuery("SELECT gametype_id FROM gametypes WHERE gametype='501'")) {
+                    assertThat(rows.next()).isTrue();
+                    existingId = rows.getLong(1);
+                }
+                var flyway = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(),
+                        POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema).load();
+                assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
+                assertThat(flyway.migrate().migrationsExecuted).isZero();
+                try (var rows = sql.executeQuery("SELECT gametype FROM gametypes ORDER BY gametype")) {
+                    var modes = new java.util.ArrayList<String>();
+                    while (rows.next()) {
+                        modes.add(rows.getString(1));
+                    }
+                    assertThat(modes).containsExactly("301", "301 Single Out", "501", "501 Single Out");
+                }
+                try (var rows = sql.executeQuery("SELECT gametype_id FROM gametypes WHERE gametype='501'")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getLong(1)).isEqualTo(existingId);
+                }
+            } finally {
+                sql.execute("DROP SCHEMA " + schema + " CASCADE");
+            }
+        }
+    }
+
+    @Test
     void detailedStatsMigrationPreservesHistoryAndMarksPlayedLegsUnavailable() throws Exception {
         String schema = "detailed_stats_upgrade_test";
         try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(),

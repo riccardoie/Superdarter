@@ -47,6 +47,32 @@ class CountdownRulesTest {
                 .isInstanceOf(InvalidScoreException.class);
     }
 
+    @ParameterizedTest
+    @CsvSource({
+        "20, '20 1', 0, true, false, 1",
+        "60, '20 3', 0, true, false, 1",
+        "25, '25 1', 0, true, false, 1",
+        "40, '20 2', 0, true, false, 1",
+        "50, '25 2', 0, true, false, 1",
+        "21, '20 1', 1, false, false, 1",
+        "21, '20 1 1 1', 0, true, false, 2",
+        "1, '1 1', 0, true, false, 1",
+        "20, '20 1 20 3', 0, true, false, 1",
+        "40, '20 1 20 3', 40, false, true, 2",
+        "21, '20 1 2 1', 21, false, true, 2"
+    })
+    void singleOutRequiresOnlyExactZero(final int points, final String score, final int remaining,
+                                       final boolean won, final boolean bust, final int darts) {
+        var result = CountdownRules.evaluate(points, score, 9, false);
+        assertThat(result.remaining()).isEqualTo(remaining);
+        assertThat(result.won()).isEqualTo(won);
+        assertThat(result.bust()).isEqualTo(bust);
+        assertThat(result.scored()).isEqualTo(points - remaining);
+        assertThat(result.dartsThrown()).isEqualTo(darts);
+        assertThat(result.firstNinePoints()).isEqualTo(points - remaining);
+        assertThat(result.firstNineDarts()).isEqualTo(darts);
+    }
+
     @Test
     void emptyRoundMeansAllMisses() {
         assertThat(CountdownRules.evaluate(301, "").remaining()).isEqualTo(301);

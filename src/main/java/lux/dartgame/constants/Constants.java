@@ -19,6 +19,8 @@ public final class Constants {
     public static final int TARGET_501 = 501;
     public static final String GAMETYPE_301 = "301";
     public static final String GAMETYPE_501 = "501";
+    public static final String GAMETYPE_301_SINGLE_OUT = "301 Single Out";
+    public static final String GAMETYPE_501_SINGLE_OUT = "501 Single Out";
 
     private static final int[] IMPOSSIBLE_SCORES =
             {163, 166, 169, 172, 173, 175, 176, 178, 179};

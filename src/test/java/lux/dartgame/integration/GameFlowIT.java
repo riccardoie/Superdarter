@@ -22,6 +22,53 @@ import org.springframework.http.ResponseEntity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GameFlowIT extends AbstractIT {
+    @ParameterizedTest
+    @ValueSource(strings = {"301 Single Out", "501 Single Out"})
+    void singleOutSupportsExactCheckoutBustUndoAndStatistics(final String type) {
+        String token = register("alice");
+        var modes = rest().exchange(GAMEMODE_URL, HttpMethod.GET, authed(token, null), String.class);
+        assertThat(modes.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(modes.getBody()).contains(type);
+        MatchResponse game = start(token, create(token, type, List.of()).gameId());
+        int starting = Integer.parseInt(type.split(" ")[0]);
+        assertThat(game.gametype()).isEqualTo(type);
+        assertThat(game.startingPoints()).isEqualTo(starting);
+        assertThat(game.players().getFirst().points()).isEqualTo(starting);
+        game = play(token, game, "alice", "20 3 20 3 20 3");
+        if (starting == 501) {
+            game = play(token, game, "alice", "20 3 20 3 20 3");
+        }
+        game = play(token, game, "alice", starting == 301 ? "20 3 20 2 20 1" : "20 3 20 3 20 1");
+        assertThat(game.players().getFirst().points()).isEqualTo(1);
+        MatchResponse beforeBust = game;
+        game = play(token, game, "alice", "2 1");
+        assertThat(game.players().getFirst().points()).isEqualTo(1);
+        assertThat(game.status()).isEqualTo(MatchStatus.IN_PROGRESS);
+        assertThat(undo(token, game).players()).isEqualTo(beforeBust.players());
+        game = get(token, game.gameId());
+        MatchResponse beforeCheckout = game;
+        game = play(token, game, "alice", "1 1 20 3");
+        assertThat(game.status()).isEqualTo(MatchStatus.COMPLETED);
+        assertThat(game.winner()).isEqualTo("alice");
+        assertThat(game.players().getFirst().points()).isZero();
+        assertThat(game.players().getFirst().highestCheckout()).isEqualTo(1);
+        assertThat(profileDarts(token)).isEqualTo(starting == 301 ? 7L : 10L);
+        assertThat(get(token, game.gameId())).isEqualTo(game);
+        assertThat(jdbc().queryForObject("SELECT won_matches FROM playerstats", Integer.class))
+                .isEqualTo(1);
+        game = undo(token, game);
+        assertThat(game.players()).isEqualTo(beforeCheckout.players());
+        assertThat(game.status()).isEqualTo(MatchStatus.IN_PROGRESS);
+        assertThat(profileDarts(token)).isZero();
+        assertThat(play(token, game, "alice", "1 1").status()).isEqualTo(MatchStatus.COMPLETED);
+        MatchResponse another = winLeg(token,
+                start(token, create(token, "301", List.of()).gameId()), "alice");
+        undo(token, another);
+        assertThat(jdbc().queryForObject("SELECT won_matches FROM playerstats", Integer.class))
+                .isEqualTo(1);
+        assertThat(profileDarts(token)).isEqualTo(starting == 301 ? 7L : 10L);
+    }
+
     @Test
     void profileDartsCountOnlyCompletedLegsAndRollbackOnUndo() {
         String token = register("alice");
@@ -481,7 +528,7 @@ class GameFlowIT extends AbstractIT {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"301", "501"})
+    @ValueSource(strings = {"301", "501", "301 Single Out", "501 Single Out"})
     void firstToTwoRotatesStartersPreservesLegsAndAwardsMatchOnlyAtTarget(final String type) {
         String token = register("alice");
         register("bob");
@@ -502,7 +549,7 @@ class GameFlowIT extends AbstractIT {
         assertThat(game.legs()).hasSize(2);
         assertThat(game.currentLegId()).isPositive().isNotEqualTo(previous.currentLegId());
         assertThat(game.turn()).isEqualTo("bob");
-        int starting = Integer.parseInt(type);
+        int starting = Integer.parseInt(type.split(" ")[0]);
         assertThat(game.players()).allMatch(p -> p.points() == starting && p.turns() == 0);
         assertThat(game.legs().getFirst().winner()).isEqualTo("alice");
         assertThat(game.legs().getFirst().players().getFirst().points()).isZero();
