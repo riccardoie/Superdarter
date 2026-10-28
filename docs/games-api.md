@@ -80,6 +80,25 @@ the caller; do not infer ownership by querying another list or relying on a cach
 performance. `legs[].players` preserves each leg's statistics. `legsWon` is the
 participant's overall standing, derived from completed legs.
 
+## Guest players
+
+Creation accepts an optional `guests` array of display names, for example:
+`{"gametype":"301","players":[{"username":"bob"}],"guests":["Guest One"],"legsToWin":2}`.
+The owner is included automatically, followed by registered players and then guests.
+All players together count towards the 10-player limit. Guest names are trimmed,
+must be nonblank and at most 255 characters, and must be unique among all names in
+that match (including the owner). Guests are explicitly requested, never inferred
+from an unknown username.
+
+Each response player includes `guest: true` or `false`. `username`, `turn`, and
+`winner` retain their existing string contract, using the guest's display name
+where appropriate. Use that exact name when submitting rounds. Guest identities,
+scores, and wins remain in match/leg history, but no account or profile statistics
+are created for them. Registered participants still receive their own results.
+A guest name matching an unrelated account neither updates that account's profile
+nor grants it permission to read, start, score, or undo the match. Only authenticated
+registered participants can operate the shared-device game.
+
 ## First-to progression
 
 After a valid checkout, the leg is completed and its winner gains one leg win. If that

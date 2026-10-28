@@ -5,6 +5,7 @@ import java.util.Arrays;
 public final class Constants {
     public static final int SECONDS_PER_MINUTE = 60;
     public static final int MAX_NR_OF_PLAYERS = 10;
+    public static final int MAX_PLAYER_NAME_LENGTH = 255;
     public static final int MIN_LENGTH_PWD = 8;
 
     public static final int BULLSEYE_VALUE = 25;
