@@ -878,6 +878,29 @@ test('solo scoreboard does not show a next player', () => {
   assert.doesNotMatch(html, /<aside|Next up/);
 });
 
+test('dartboard compact scoreboard keeps the current score, checkout and expandable statistics', () => {
+  const html = renderToStaticMarkup(
+    createElement(GameScoreboard, {
+      game: {
+        startingPoints: 301,
+        turn: 'alice',
+        players: [
+          { username: 'alice', points: 40, turns: 5, highestScore: 100 },
+          { username: 'bob', points: 120, turns: 4, highestScore: 80 },
+        ],
+      },
+      slots: [],
+      compact: true,
+    })
+  );
+  assert.match(html, /game-turn-overview-compact/);
+  assert.match(html, /Now throwing/);
+  assert.match(html, /Remaining points: 40/);
+  assert.match(html, /d20/);
+  assert.match(html, /<summary>All players \(2\)/);
+  assert.match(html, /<table class="game-standings-table"/);
+});
+
 test('all players table displays the requested statistics and handles missing first-nine data', () => {
   const html = renderToStaticMarkup(
     createElement(GameScoreboard, {

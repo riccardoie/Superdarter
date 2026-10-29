@@ -82,6 +82,11 @@ export default function GamePage() {
   }
 
   const finished = ['COMPLETED', 'ABANDONED'].includes(game.status);
+  const boardFocus =
+    !finished &&
+    game.status !== 'PENDING' &&
+    game.permissions.canScore &&
+    inputMode === 'board';
   const activePlayer = game.turn;
   const roundTotal = slots.reduce((sum, slot) => {
     const value = Number(slot.value);
@@ -238,7 +243,7 @@ export default function GamePage() {
     <div
       className={`page game-page${
         finished ? ' game-page-finished' : ' game-page-in-progress'
-      }`}
+      }${boardFocus ? ' game-page-board-focus' : ''}`}
     >
       <div className="game-page-header">
         <Link className="btn game-back-link" to="/games">
@@ -416,6 +421,15 @@ export default function GamePage() {
             </div>
           ) : (
             <div className="game-board-entry">
+              <DartboardInput onHit={recordBoardHit} disabled={submitting} />
+            </div>
+          )}
+          <div
+            className={
+              boardFocus ? 'game-board-controls' : 'game-text-controls'
+            }
+          >
+            {boardFocus && (
               <div className="game-board-slots">
                 {slots.map((slot, index) => (
                   <button
@@ -425,47 +439,49 @@ export default function GamePage() {
                       index === activeDart ? 'game-board-slot-active' : ''
                     }
                     onClick={() => setActiveDart(index)}
+                    aria-pressed={index === activeDart}
                     disabled={submitting}
                   >
                     D{index + 1}:{' '}
                     {slot.value === ''
-                      ? 'Select a target'
+                      ? '—'
                       : Number(slot.value) === 0
                         ? 'Miss'
                         : `${slot.multiplier > 1 ? `x${slot.multiplier} ` : ''}${slot.value}`}
                   </button>
                 ))}
               </div>
-              <DartboardInput onHit={recordBoardHit} disabled={submitting} />
+            )}
+            <div className="game-round-total">Round total: {roundTotal}</div>
+            <div className="game-round-actions">
+              <button
+                type="button"
+                className="btn game-undo"
+                onClick={handleUndo}
+                disabled={submitting || !game.permissions.canUndo}
+              >
+                {boardFocus ? 'Undo round' : 'Undo previous round'}
+              </button>
+              <button
+                type="button"
+                className="btn game-register"
+                onClick={handleSubmit}
+                disabled={!canSubmit || submitting}
+              >
+                {submitting ? 'Registering...' : 'Register Round'}
+              </button>
             </div>
-          )}
-          <div className="game-round-total">Round total: {roundTotal}</div>
-          <div className="game-round-actions">
-            <button
-              type="button"
-              className="btn game-undo"
-              onClick={handleUndo}
-              disabled={submitting || !game.permissions.canUndo}
-            >
-              Undo previous round
-            </button>
-            <button
-              type="button"
-              className="btn game-register"
-              onClick={handleSubmit}
-              disabled={!canSubmit || submitting}
-            >
-              {submitting ? 'Registering...' : 'Register Round'}
-            </button>
           </div>
-          <p className="game-shared-hint">
-            Playing on one device — each player enters their throws when it's
-            their turn. Enter 1–3 darts in order; leave unused darts blank.
-            {isSingleOut(game.gametype)
-              ? 'Reach exactly zero with any dart.'
-              : 'Finish on a double.'}{' '}
-            Register an empty round if all darts missed.
-          </p>
+          {!boardFocus && (
+            <p className="game-shared-hint">
+              Playing on one device — each player enters their throws when it's
+              their turn. Enter 1–3 darts in order; leave unused darts blank.
+              {isSingleOut(game.gametype)
+                ? 'Reach exactly zero with any dart.'
+                : 'Finish on a double.'}{' '}
+              Register an empty round if all darts missed.
+            </p>
+          )}
         </div>
       ) : (
         <p className="state-message">

@@ -945,6 +945,89 @@
   margin: var(--space-3) auto 0;
 }
 
+.game-text-controls {
+  display: contents;
+}
+
+/* Dartboard mode keeps scoring controls in reach without reducing the board. */
+.game-page-board-focus .game-round-panel {
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.game-turn-overview.game-turn-overview-compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'current standings';
+  align-items: start;
+}
+
+.game-turn-overview-compact .game-next-player,
+.game-turn-overview-compact .game-scoreboard-average,
+.game-turn-overview-compact .game-scoreboard-turns,
+.game-turn-overview-compact .game-scoreboard-leg-wins {
+  display: none;
+}
+
+.game-turn-overview.game-turn-overview-compact .game-scoreboard-row {
+  grid-template-areas: 'name points' 'checkout checkout';
+  gap: var(--space-1) var(--space-2);
+}
+
+.game-turn-overview.game-turn-overview-compact .game-scoreboard-checkout {
+  text-align: left;
+}
+
+.game-turn-overview-compact .game-scoreboard-checkout:empty {
+  display: none;
+}
+
+.game-turn-overview-compact .game-all-standings summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.game-board-controls {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: 0 -4px 16px var(--color-shadow);
+}
+
+.game-board-controls .game-board-slots {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.game-board-controls .game-board-slots button {
+  min-height: 44px;
+  padding: var(--space-1);
+  font-size: 0.9rem;
+}
+
+.game-board-controls .game-round-total {
+  align-self: center;
+  font-size: 0.9rem;
+}
+
+.game-board-controls .game-round-actions {
+  gap: var(--space-2);
+}
+
+.game-board-controls .game-round-actions > button {
+  padding: var(--space-2);
+  font-size: 0.85rem;
+}
+
 .game-turn-banner {
   width: 100%;
   text-align: center;

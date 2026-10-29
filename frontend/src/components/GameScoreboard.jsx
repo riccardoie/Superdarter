@@ -3,7 +3,7 @@ import { standingsInStartingOrder } from '../matchFormat';
 import { matchStats } from '../gameStats';
 import { isSingleOut } from '../gameSetup';
 
-export default function GameScoreboard({ game, slots }) {
+export default function GameScoreboard({ game, slots, compact = false }) {
   const activeIndex = game.players.findIndex(
     (player) => player.username === game.turn
   );
@@ -29,7 +29,7 @@ export default function GameScoreboard({ game, slots }) {
   return (
     <>
       <div
-        className={`game-turn-overview${nextPlayer ? '' : ' game-turn-solo'}`}
+        className={`game-turn-overview${nextPlayer ? '' : ' game-turn-solo'}${compact ? ' game-turn-overview-compact' : ''}`}
       >
         <section className="game-current-player" aria-label="Current player">
           <h2>{game.turn ? 'Now throwing' : 'Ready to play'}</h2>
