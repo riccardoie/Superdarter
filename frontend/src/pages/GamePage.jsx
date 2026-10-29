@@ -9,7 +9,7 @@ import {
   undoRound,
 } from '../api';
 import DartboardInput from '../components/DartboardInput';
-import { canSubmitRound, serializeRound } from '../dartRound';
+import { canSubmitRound, dartInputError, serializeRound } from '../dartRound';
 import GameStatsTable from '../components/GameStatsTable';
 import GameScoreboard from '../components/GameScoreboard';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -19,9 +19,6 @@ import { matchFormatLabel } from '../matchFormat';
 import { matchStats } from '../gameStats';
 import { isMatchWinningRound } from '../gameCompletion';
 import { isSingleOut } from '../gameSetup';
-
-// Array of all numbers from 1-20+25
-const DART_VALUES = Array.from({ length: 20 }, (_, i) => i + 1).concat(25);
 
 function emptySlots() {
   return [
@@ -39,7 +36,7 @@ export default function GamePage() {
   const [actionError, setActionError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [slots, setSlots] = useState(emptySlots);
-  const [inputMode, setInputMode] = useState('board');
+  const [inputMode, setInputMode] = useState('select');
   const [activeDart, setActiveDart] = useState(0);
   const [managementAction, setManagementAction] = useState(null);
   const [legNotice, setLegNotice] = useState('');
@@ -91,7 +88,7 @@ export default function GamePage() {
   const roundTotal = slots.reduce((sum, slot) => {
     const value = Number(slot.value);
     const multiplier = Number(slot.multiplier);
-    return sum + (value > 0 && multiplier > 0 ? value * multiplier : 0);
+    return sum + (!dartInputError(slot) && value > 0 ? value * multiplier : 0);
   }, 0);
   const canSubmit = canSubmitRound(slots);
 
@@ -239,13 +236,6 @@ export default function GamePage() {
     }
   }
 
-  const multipliersFor = (slot) =>
-    Number(slot.value) === 0
-      ? [1]
-      : Number(slot.value) === 25
-        ? [1, 2]
-        : [1, 2, 3];
-
   return (
     <div
       className={`page game-page${
@@ -348,19 +338,19 @@ export default function GamePage() {
           >
             <button
               type="button"
+              className={inputMode === 'select' ? 'game-input-mode-active' : ''}
+              onClick={() => setInputMode('select')}
+              disabled={submitting}
+            >
+              Text
+            </button>
+            <button
+              type="button"
               className={inputMode === 'board' ? 'game-input-mode-active' : ''}
               onClick={() => setInputMode('board')}
               disabled={submitting}
             >
               Dartboard
-            </button>
-            <button
-              type="button"
-              className={inputMode === 'select' ? 'game-input-mode-active' : ''}
-              onClick={() => setInputMode('select')}
-              disabled={submitting}
-            >
-              Select
             </button>
           </div>
           {inputMode === 'select' ? (
@@ -369,38 +359,65 @@ export default function GamePage() {
                 <div key={index} className="game-dart-slot">
                   <label>
                     <span>D{index + 1} number</span>
-                    <select
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="([1-9]|1[0-9]|20|25)"
+                      placeholder="1–20 or 25"
                       value={slot.value}
-                      onChange={(e) =>
-                        updateSlot(index, 'value', e.target.value)
-                      }
+                      onChange={(e) => {
+                        if (e.target.value !== '0') {
+                          updateSlot(index, 'value', e.target.value);
+                        }
+                      }}
+                      aria-describedby={`dart-${index}-error`}
+                      aria-invalid={!!dartInputError(slot)}
                       disabled={submitting}
-                    >
-                      <option value="">—</option>
-                      <option value="0">Miss (0)</option>
-                      {DART_VALUES.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
-                  <label>
-                    <span>Multiplier</span>
-                    <select
-                      value={slot.multiplier}
-                      onChange={(e) =>
-                        updateSlot(index, 'multiplier', e.target.value)
-                      }
-                      disabled={submitting || Number(slot.value) === 0}
+                  <div className="game-multiplier-field">
+                    <span id={`dart-${index}-multiplier`}>Multiplier</span>
+                    <div
+                      className="game-multiplier-options"
+                      role="group"
+                      aria-labelledby={`dart-${index}-multiplier`}
                     >
-                      {multipliersFor(slot).map((mult) => (
-                        <option key={mult} value={mult}>
-                          &times;{mult}
-                        </option>
+                      {[1, 2, 3].map((multiplier) => (
+                        <button
+                          key={multiplier}
+                          type="button"
+                          aria-pressed={Number(slot.multiplier) === multiplier}
+                          disabled={
+                            submitting ||
+                            (slot.value !== '' && Number(slot.value) === 0) ||
+                            (Number(slot.value) === 25 && multiplier === 3)
+                          }
+                          onClick={() =>
+                            updateSlot(index, 'multiplier', multiplier)
+                          }
+                        >
+                          {multiplier}
+                        </button>
                       ))}
-                    </select>
-                  </label>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={submitting}
+                    onClick={() => updateSlot(index, 'value', 0)}
+                  >
+                    Miss
+                  </button>
+                  {dartInputError(slot) && (
+                    <span
+                      id={`dart-${index}-error`}
+                      className="error-message"
+                      role="alert"
+                    >
+                      {dartInputError(slot)}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

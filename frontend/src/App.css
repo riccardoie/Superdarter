@@ -1018,22 +1018,39 @@
 
 .game-dart-slots {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
-  width: 100%;
-}
-
-.game-dart-slot {
-  display: flex;
-  flex-direction: column;
   gap: var(--space-2);
+  width: 100%;
+  max-width: 540px;
   padding: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
 }
 
-.game-dart-slot label {
+.game-dart-slot {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.game-dart-slot + .game-dart-slot {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.game-dart-slot > .btn {
+  min-height: 44px;
+  padding: var(--space-2);
+}
+
+.game-dart-slot > .error-message {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.game-dart-slot label,
+.game-multiplier-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -1041,7 +1058,42 @@
   color: var(--color-text-muted);
 }
 
+.game-multiplier-options {
+  display: flex;
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.game-multiplier-options button {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1);
+  border: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.game-multiplier-options button + button {
+  border-left: 1px solid var(--color-border);
+}
+
+.game-multiplier-options button[aria-pressed='true'] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.game-multiplier-options button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.game-dart-slot input,
 .game-dart-slot select {
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius);
@@ -1050,6 +1102,7 @@
   color: var(--color-text);
 }
 
+.game-dart-slot input:disabled,
 .game-dart-slot select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -1572,8 +1625,7 @@
   }
 
   .player-picker-row,
-  .gamemode-picker-row,
-  .game-dart-slots {
+  .gamemode-picker-row {
     grid-template-columns: 1fr;
     flex-direction: column;
   }
