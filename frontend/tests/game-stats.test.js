@@ -863,19 +863,32 @@ test('scoreboard focuses on the current player and keeps all standings collapsed
   }
 });
 
-test('solo scoreboard does not show a next player', () => {
+test('solo scoreboard shows all standings statistics directly, without next player or All players', () => {
   const html = renderToStaticMarkup(
     createElement(GameScoreboard, {
       game: {
         startingPoints: 301,
         turn: 'alice',
-        players: [{ username: 'alice', points: 301, turns: 0 }],
+        players: [
+          {
+            username: 'alice',
+            points: 181,
+            turns: 2,
+            highestScore: 80,
+            scoringStats: { firstNineAverage: 60 },
+          },
+        ],
       },
       slots: [],
     })
   );
   assert.match(html, /game-turn-solo/);
-  assert.doesNotMatch(html, /<aside|Next up/);
+  assert.doesNotMatch(html, /<aside|Next up|All players|game-all-standings/);
+  assert.match(html, /Avg: 60\.0/);
+  assert.match(html, /First 9 avg: 60\.0/);
+  assert.match(html, /Best score: 80/);
+  assert.match(html, /Legs: 0 \/ 1/);
+  assert.match(html, /Remaining points: 181/);
 });
 
 test('dartboard compact scoreboard keeps the current score, checkout and expandable statistics', () => {
