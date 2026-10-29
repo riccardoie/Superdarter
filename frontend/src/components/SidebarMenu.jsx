@@ -7,6 +7,13 @@ export default function SidebarMenu({ isOpen, onClose }) {
         <NavLink to="/games" className="sidebar-link" onClick={onClose}>
           Games
         </NavLink>
+        <NavLink
+          to="/completed-games"
+          className="sidebar-link"
+          onClick={onClose}
+        >
+          Completed games
+        </NavLink>
         <NavLink to="/profile" className="sidebar-link" onClick={onClose}>
           Profile
         </NavLink>

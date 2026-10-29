@@ -4,7 +4,7 @@ import { getAllGamemodes } from '../api';
 import GamesList from '../components/GamesList';
 import CreateGame from '../components/CreateGame';
 
-export default function GamesPage() {
+export default function GamesPage({ completed = false }) {
   const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
   const [availableGamemodes, setAvailableGamemodes] = useState(null);
@@ -20,14 +20,16 @@ export default function GamesPage() {
   return (
     <div className="page games-page">
       <div className="games-header">
-        <h1>Games</h1>
-        <button
-          className="btn btn-primary"
-          type="button"
-          onClick={() => setShowCreate(true)}
-        >
-          Create game
-        </button>
+        <h1>{completed ? 'Completed games' : 'Games'}</h1>
+        {!completed && (
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => setShowCreate(true)}
+          >
+            Create game
+          </button>
+        )}
       </div>
       <div className="games-filter" aria-label="Filter games">
         {availableGamemodes === null && !gamemodeError && (
@@ -55,8 +57,8 @@ export default function GamesPage() {
           </div>
         )}
       </div>
-      <GamesList gamemode={gamemode} />
-      {showCreate && (
+      <GamesList gamemode={gamemode} completed={completed} />
+      {!completed && showCreate && (
         <CreateGame
           onClose={() => setShowCreate(false)}
           onContinue={(draft) => {

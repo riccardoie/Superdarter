@@ -245,8 +245,11 @@ export default function GamePage() {
       }${boardFocus ? ' game-page-board-focus' : ''}`}
     >
       <div className="game-page-header">
-        <Link className="btn game-back-link" to="/games">
-          &larr; Back to Games
+        <Link
+          className="btn game-back-link"
+          to={finished ? '/completed-games' : '/games'}
+        >
+          &larr; {finished ? 'Back to Completed games' : 'Back to Games'}
         </Link>
         {(game.permissions.canDelete || game.permissions.canAbandon) && (
           <button
