@@ -9,19 +9,14 @@ import {
   undoRound,
 } from '../api';
 import DartboardInput from '../components/DartboardInput';
-import { canSubmitRound, serializeRound } from '../dartRound';
+import { canSubmitRound, dartInputError, serializeRound } from '../dartRound';
 import GameStatsTable from '../components/GameStatsTable';
 import GameScoreboard from '../components/GameScoreboard';
 import ConfirmDialog from '../components/ConfirmDialog';
-import MatchProgress from '../components/MatchProgress';
 import CompletedLegs from '../components/CompletedLegs';
-import { matchFormatLabel } from '../matchFormat';
 import { matchStats } from '../gameStats';
 import { isMatchWinningRound } from '../gameCompletion';
 import { isSingleOut } from '../gameSetup';
-
-// Array of all numbers from 1-20+25
-const DART_VALUES = Array.from({ length: 20 }, (_, i) => i + 1).concat(25);
 
 function emptySlots() {
   return [
@@ -39,7 +34,7 @@ export default function GamePage() {
   const [actionError, setActionError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [slots, setSlots] = useState(emptySlots);
-  const [inputMode, setInputMode] = useState('board');
+  const [inputMode, setInputMode] = useState('select');
   const [activeDart, setActiveDart] = useState(0);
   const [managementAction, setManagementAction] = useState(null);
   const [legNotice, setLegNotice] = useState('');
@@ -87,11 +82,16 @@ export default function GamePage() {
   }
 
   const finished = ['COMPLETED', 'ABANDONED'].includes(game.status);
+  const boardFocus =
+    !finished &&
+    game.status !== 'PENDING' &&
+    game.permissions.canScore &&
+    inputMode === 'board';
   const activePlayer = game.turn;
   const roundTotal = slots.reduce((sum, slot) => {
     const value = Number(slot.value);
     const multiplier = Number(slot.multiplier);
-    return sum + (value > 0 && multiplier > 0 ? value * multiplier : 0);
+    return sum + (!dartInputError(slot) && value > 0 ? value * multiplier : 0);
   }, 0);
   const canSubmit = canSubmitRound(slots);
 
@@ -239,27 +239,16 @@ export default function GamePage() {
     }
   }
 
-  const multipliersFor = (slot) =>
-    Number(slot.value) === 0
-      ? [1]
-      : Number(slot.value) === 25
-        ? [1, 2]
-        : [1, 2, 3];
-
   return (
     <div
       className={`page game-page${
         finished ? ' game-page-finished' : ' game-page-in-progress'
-      }`}
+      }${boardFocus ? ' game-page-board-focus' : ''}`}
     >
       <div className="game-page-header">
         <Link className="btn game-back-link" to="/games">
           &larr; Back to Games
         </Link>
-        <span className="game-format-label">
-          {game.startingPoints} · {matchFormatLabel(game.legsToWin)} ·{' '}
-          {isSingleOut(game.gametype) ? 'Single-out' : 'Double-out'}
-        </span>
         {(game.permissions.canDelete || game.permissions.canAbandon) && (
           <button
             className="btn game-manage-button"
@@ -287,7 +276,6 @@ export default function GamePage() {
           {legNotice}
         </p>
       )}
-      <MatchProgress game={game} />
 
       {!finished && <GameScoreboard game={game} slots={slots} />}
 
@@ -348,19 +336,19 @@ export default function GamePage() {
           >
             <button
               type="button"
+              className={inputMode === 'select' ? 'game-input-mode-active' : ''}
+              onClick={() => setInputMode('select')}
+              disabled={submitting}
+            >
+              Text
+            </button>
+            <button
+              type="button"
               className={inputMode === 'board' ? 'game-input-mode-active' : ''}
               onClick={() => setInputMode('board')}
               disabled={submitting}
             >
               Dartboard
-            </button>
-            <button
-              type="button"
-              className={inputMode === 'select' ? 'game-input-mode-active' : ''}
-              onClick={() => setInputMode('select')}
-              disabled={submitting}
-            >
-              Select
             </button>
           </div>
           {inputMode === 'select' ? (
@@ -369,43 +357,79 @@ export default function GamePage() {
                 <div key={index} className="game-dart-slot">
                   <label>
                     <span>D{index + 1} number</span>
-                    <select
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="([1-9]|1[0-9]|20|25)"
+                      placeholder="1–20 or 25"
                       value={slot.value}
-                      onChange={(e) =>
-                        updateSlot(index, 'value', e.target.value)
-                      }
+                      onChange={(e) => {
+                        if (e.target.value !== '0') {
+                          updateSlot(index, 'value', e.target.value);
+                        }
+                      }}
+                      aria-describedby={`dart-${index}-error`}
+                      aria-invalid={!!dartInputError(slot)}
                       disabled={submitting}
-                    >
-                      <option value="">—</option>
-                      <option value="0">Miss (0)</option>
-                      {DART_VALUES.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
-                  <label>
-                    <span>Multiplier</span>
-                    <select
-                      value={slot.multiplier}
-                      onChange={(e) =>
-                        updateSlot(index, 'multiplier', e.target.value)
-                      }
-                      disabled={submitting || Number(slot.value) === 0}
+                  <div className="game-multiplier-field">
+                    <span id={`dart-${index}-multiplier`}>Multiplier</span>
+                    <div
+                      className="game-multiplier-options"
+                      role="group"
+                      aria-labelledby={`dart-${index}-multiplier`}
                     >
-                      {multipliersFor(slot).map((mult) => (
-                        <option key={mult} value={mult}>
-                          &times;{mult}
-                        </option>
+                      {[1, 2, 3].map((multiplier) => (
+                        <button
+                          key={multiplier}
+                          type="button"
+                          aria-pressed={Number(slot.multiplier) === multiplier}
+                          disabled={
+                            submitting ||
+                            (slot.value !== '' && Number(slot.value) === 0) ||
+                            (Number(slot.value) === 25 && multiplier === 3)
+                          }
+                          onClick={() =>
+                            updateSlot(index, 'multiplier', multiplier)
+                          }
+                        >
+                          {multiplier}
+                        </button>
                       ))}
-                    </select>
-                  </label>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={submitting}
+                    onClick={() => updateSlot(index, 'value', 0)}
+                  >
+                    Miss
+                  </button>
+                  {dartInputError(slot) && (
+                    <span
+                      id={`dart-${index}-error`}
+                      className="error-message"
+                      role="alert"
+                    >
+                      {dartInputError(slot)}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
             <div className="game-board-entry">
+              <DartboardInput onHit={recordBoardHit} disabled={submitting} />
+            </div>
+          )}
+          <div
+            className={
+              boardFocus ? 'game-board-controls' : 'game-text-controls'
+            }
+          >
+            {boardFocus && (
               <div className="game-board-slots">
                 {slots.map((slot, index) => (
                   <button
@@ -415,47 +439,49 @@ export default function GamePage() {
                       index === activeDart ? 'game-board-slot-active' : ''
                     }
                     onClick={() => setActiveDart(index)}
+                    aria-pressed={index === activeDart}
                     disabled={submitting}
                   >
                     D{index + 1}:{' '}
                     {slot.value === ''
-                      ? 'Select a target'
+                      ? '—'
                       : Number(slot.value) === 0
                         ? 'Miss'
                         : `${slot.multiplier > 1 ? `x${slot.multiplier} ` : ''}${slot.value}`}
                   </button>
                 ))}
               </div>
-              <DartboardInput onHit={recordBoardHit} disabled={submitting} />
+            )}
+            <div className="game-round-total">Round total: {roundTotal}</div>
+            <div className="game-round-actions">
+              <button
+                type="button"
+                className="btn game-undo"
+                onClick={handleUndo}
+                disabled={submitting || !game.permissions.canUndo}
+              >
+                {boardFocus ? 'Undo round' : 'Undo previous round'}
+              </button>
+              <button
+                type="button"
+                className="btn game-register"
+                onClick={handleSubmit}
+                disabled={!canSubmit || submitting}
+              >
+                {submitting ? 'Registering...' : 'Register Round'}
+              </button>
             </div>
-          )}
-          <div className="game-round-total">Round total: {roundTotal}</div>
-          <div className="game-round-actions">
-            <button
-              type="button"
-              className="btn game-undo"
-              onClick={handleUndo}
-              disabled={submitting || !game.permissions.canUndo}
-            >
-              Undo previous round
-            </button>
-            <button
-              type="button"
-              className="btn game-register"
-              onClick={handleSubmit}
-              disabled={!canSubmit || submitting}
-            >
-              {submitting ? 'Registering...' : 'Register Round'}
-            </button>
           </div>
-          <p className="game-shared-hint">
-            Playing on one device — each player enters their throws when it's
-            their turn. Enter 1–3 darts in order; leave unused darts blank.
-            {isSingleOut(game.gametype)
-              ? 'Reach exactly zero with any dart.'
-              : 'Finish on a double.'}{' '}
-            Register an empty round if all darts missed.
-          </p>
+          {!boardFocus && (
+            <p className="game-shared-hint">
+              Playing on one device — each player enters their throws when it's
+              their turn. Enter 1–3 darts in order; leave unused darts blank.
+              {isSingleOut(game.gametype)
+                ? 'Reach exactly zero with any dart.'
+                : 'Finish on a double.'}{' '}
+              Register an empty round if all darts missed.
+            </p>
+          )}
         </div>
       ) : (
         <p className="state-message">

@@ -1,9 +1,33 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { canSubmitRound, serializeRound, undoLastDart } from '../src/dartRound.js';
+import {
+  canSubmitRound,
+  serializeRound,
+  undoLastDart,
+} from '../src/dartRound.js';
 import { previewCheckout } from '../src/checkout.js';
 
 const dart = (value = '', multiplier = 1) => ({ value, multiplier });
+
+test('text entry accepts only dart numbers and their permitted multipliers', () => {
+  for (const value of [1, 20, 25, '1', '20', '25']) {
+    const max = Number(value) === 25 ? 2 : 3;
+    for (let multiplier = 1; multiplier <= max; multiplier++) {
+      assert.equal(
+        canSubmitRound([dart(value, String(multiplier)), dart(), dart()]),
+        true
+      );
+    }
+  }
+  for (const value of [-1, 21, 24, 26, '2.5', 'abc', '1e1', ' 2', '02']) {
+    assert.equal(canSubmitRound([dart(value), dart(), dart()]), false);
+  }
+  for (const multiplier of ['', 0, 4, -1, '1.5', 'abc']) {
+    assert.equal(canSubmitRound([dart(20, multiplier), dart(), dart()]), false);
+  }
+  assert.equal(canSubmitRound([dart(25, 3), dart(), dart()]), false);
+  assert.equal(canSubmitRound([dart(0, 2), dart(), dart()]), false);
+});
 
 test('a single dart can be submitted without filling unused slots', () => {
   const slots = [dart('20', 2), dart(), dart()];
@@ -60,6 +84,9 @@ test('undo restores the checkout suggestion after an incorrect bust or finish', 
     const result = undoLastDart(slots);
     const preview = previewCheckout(40, result.slots);
     assert.equal(preview.dartsLeft, 3);
-    assert.deepEqual(preview.route.map((hit) => hit.label), ['D20']);
+    assert.deepEqual(
+      preview.route.map((hit) => hit.label),
+      ['D20']
+    );
   }
 });

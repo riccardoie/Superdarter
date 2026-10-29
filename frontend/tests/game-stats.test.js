@@ -595,7 +595,7 @@ test('guest creation keeps guests separate from account usernames in the API req
   });
 });
 
-test('guest markers survive scoreboard, history card and match statistics rendering', () => {
+test('guest markers are hidden on the scoreboard but retained in history and match statistics', () => {
   const player = {
     username: 'Guest One',
     guest: true,
@@ -616,7 +616,7 @@ test('guest markers survive scoreboard, history card and match statistics render
     createElement(GameScoreboard, { game, slots: [] })
   );
   assert.match(scoreboard, /Guest One/);
-  assert.match(scoreboard, /player-guest-label/);
+  assert.doesNotMatch(scoreboard, /player-guest-label/);
   const table = renderToStaticMarkup(
     createElement(GameStatsTable, {
       players: [player],
@@ -696,8 +696,13 @@ test('leg standings retain original order as starting players rotate', () => {
     const html = renderToStaticMarkup(
       createElement(GameScoreboard, { game, slots: [] })
     );
-    assert.ok(html.indexOf('title="alice"') < html.indexOf('title="bob"'));
-    assert.ok(html.indexOf('title="bob"') < html.indexOf('title="carol"'));
+    const standings = html.slice(html.indexOf('<details'));
+    assert.ok(
+      standings.indexOf('title="alice"') < standings.indexOf('title="bob"')
+    );
+    assert.ok(
+      standings.indexOf('title="bob"') < standings.indexOf('title="carol"')
+    );
   }
 });
 
@@ -742,7 +747,7 @@ test('multi-leg standings and completed leg stats survive reload', async () => {
   );
   assert.match(
     scoreboard,
-    /game-scoreboard-stats"><span class="game-scoreboard-leg-wins">Legs: 1 \/ 2<\/span><span class="game-scoreboard-turns">Turns: 0/
+    /game-scoreboard-stats"><span class="game-scoreboard-leg-wins">Legs: 0 \/ 2<\/span><span class="game-scoreboard-turns">Turns: 0/
   );
   assert.match(
     scoreboard,
@@ -825,6 +830,113 @@ test('live scoreboard shows zero average before the first turn', () => {
   assert.doesNotMatch(html, /NaN|Infinity/);
 });
 
+test('scoreboard focuses on the current player and keeps all standings collapsed', () => {
+  const players = ['alice', 'bob', 'carol'].map((username, index) => ({
+    username,
+    points: 301 - index * 20,
+    turns: index,
+    legsWon: 0,
+  }));
+  for (let index = 0; index < players.length; index++) {
+    const html = renderToStaticMarkup(
+      createElement(GameScoreboard, {
+        game: { startingPoints: 301, turn: players[index].username, players },
+        slots: [],
+      })
+    );
+    const current = html.slice(
+      html.indexOf('<section'),
+      html.indexOf('</section>')
+    );
+    const next = html.slice(html.indexOf('<aside'), html.indexOf('</aside>'));
+    assert.match(current, /Now throwing/);
+    assert.ok(current.includes(`title="${players[index].username}"`));
+    assert.ok(
+      next.includes(`title="${players[(index + 1) % players.length].username}"`)
+    );
+    assert.equal([...html.matchAll(/class="game-scoreboard-row/g)].length, 1);
+    assert.match(
+      html,
+      /<details class="game-all-standings"><summary>All players \(3\)/
+    );
+    assert.doesNotMatch(html, /<details[^>]*\sopen/);
+  }
+});
+
+test('solo scoreboard does not show a next player', () => {
+  const html = renderToStaticMarkup(
+    createElement(GameScoreboard, {
+      game: {
+        startingPoints: 301,
+        turn: 'alice',
+        players: [{ username: 'alice', points: 301, turns: 0 }],
+      },
+      slots: [],
+    })
+  );
+  assert.match(html, /game-turn-solo/);
+  assert.doesNotMatch(html, /<aside|Next up/);
+});
+
+test('dartboard compact scoreboard keeps the current score, checkout and expandable statistics', () => {
+  const html = renderToStaticMarkup(
+    createElement(GameScoreboard, {
+      game: {
+        startingPoints: 301,
+        turn: 'alice',
+        players: [
+          { username: 'alice', points: 40, turns: 5, highestScore: 100 },
+          { username: 'bob', points: 120, turns: 4, highestScore: 80 },
+        ],
+      },
+      slots: [],
+      compact: true,
+    })
+  );
+  assert.match(html, /game-turn-overview-compact/);
+  assert.match(html, /Now throwing/);
+  assert.match(html, /Remaining points: 40/);
+  assert.match(html, /d20/);
+  assert.match(html, /<summary>All players \(2\)/);
+  assert.match(html, /<table class="game-standings-table"/);
+});
+
+test('all players table displays the requested statistics and handles missing first-nine data', () => {
+  const html = renderToStaticMarkup(
+    createElement(GameScoreboard, {
+      game: {
+        startingPoints: 301,
+        turn: 'alice',
+        players: [
+          {
+            username: 'alice',
+            points: 181,
+            turns: 2,
+            highestScore: 80,
+            legsWon: 1,
+            scoringStats: { firstNineAverage: 65.25 },
+          },
+          { username: 'bob', points: 301, turns: 0 },
+        ],
+      },
+      slots: [],
+    })
+  );
+  const table = html.slice(html.indexOf('<table'), html.indexOf('</table>'));
+  assert.deepEqual(
+    [...table.matchAll(/<th scope="col">(.*?)<\/th>/g)].map((match) =>
+      match[1].replace(/<br\s*\/?\s*>/g, ' ')
+    ),
+    ['Players', 'Avg', 'First 9 avg', 'Best score', 'Legs', 'Points left']
+  );
+  assert.match(
+    table,
+    /<td>60\.0<\/td><td>65\.3<\/td><td>80<\/td><td>1<\/td><td aria-label="Remaining points: 181">181<\/td>/
+  );
+  assert.match(table, /<td>0\.0<\/td><td>—<\/td><td>0<\/td><td>0<\/td>/);
+  assert.match(table, /<tr aria-current="true">/);
+});
+
 test('scoreboard reserves checkout space and always puts remaining points last', () => {
   const game = {
     legsToWin: 3,
@@ -841,10 +953,9 @@ test('scoreboard reserves checkout space and always puts remaining points last',
   );
   assert.equal(
     [...html.matchAll(/class="game-scoreboard-checkout"/g)].length,
-    2
+    1
   );
   assert.match(html, /t20 → d20/);
-  assert.match(html, /game-scoreboard-checkout"><\/span>/);
   const stats = html.slice(html.indexOf('game-scoreboard-stats'));
   assert.ok(
     stats.indexOf('game-scoreboard-leg-wins') <
