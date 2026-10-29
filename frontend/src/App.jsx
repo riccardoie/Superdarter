@@ -9,6 +9,7 @@ import GamesPage from './pages/GamesPage';
 import GamePage from './pages/GamePage';
 import GameSetupPage from './pages/GameSetupPage';
 import ProfilePage from './pages/ProfilePage';
+import FriendsPage from './pages/FriendsPage';
 import AppLayout from './components/AppLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -32,6 +33,8 @@ export default function App() {
               />
               <Route path="/games/new" element={<GameSetupPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/profile/:username" element={<ProfilePage />} />
+              <Route path="/friends" element={<FriendsPage />} />
               <Route path="/games/:gameId" element={<GamePage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />

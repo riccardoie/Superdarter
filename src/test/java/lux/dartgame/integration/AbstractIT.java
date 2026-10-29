@@ -52,7 +52,7 @@ abstract class AbstractIT {
      * a test, and the endpoints under test need them to exist.
      */
     private static final String RESET_STATEMENT =
-            "TRUNCATE TABLE leg_player_stats, legs, match_participants, matches, "
+            "TRUNCATE TABLE friend_requests, leg_player_stats, legs, match_participants, matches, "
                     + "playerstats, users RESTART IDENTITY CASCADE";
 
     private static final String SECRET_RAW = "lux-integration-test-secret-key-32bytes!";
@@ -146,5 +146,13 @@ abstract class AbstractIT {
     protected int countRows(final String table) {
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
         return count == null ? 0 : count;
+    }
+
+    // Explicit accepted-friend fixture for game tests that predate friend invitations.
+    protected void befriend(final String first, final String second) {
+        jdbc.update("INSERT INTO friend_requests(sender_id, recipient_id, status, accepted_at) "
+                + "SELECT a.user_id, b.user_id, 'ACCEPTED', CURRENT_TIMESTAMP "
+                + "FROM users a, users b WHERE a.user_name=? AND b.user_name=? "
+                + "AND a.user_id<>b.user_id ON CONFLICT DO NOTHING", first, second);
     }
 }

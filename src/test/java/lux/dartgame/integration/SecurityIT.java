@@ -50,6 +50,7 @@ class SecurityIT extends AbstractIT {
     void membersCannotManageOwnersGameOrScoreOutOfTurnOrAnotherLeg() {
         String alice = register("alice");
         String bob = register("bob");
+        befriend("alice", "bob");
         MatchResponse game = create(alice, List.of(new UserRequest("bob")));
         MatchResponse other = create(alice, List.of(new UserRequest("bob")));
         String url = GAMES_URL + "/" + game.gameId();

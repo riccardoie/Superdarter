@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react';
-import { getAllGamemodes, getUsername, MAX_TOTAL_PLAYERS } from '../api';
-import { countdownModes, playerNameError } from '../gameSetup';
+import {
+  getAllGamemodes,
+  getFriends,
+  getUsername,
+  MAX_TOTAL_PLAYERS,
+} from '../api';
+import {
+  countdownModes,
+  gameFriendSuggestions,
+  playerNameError,
+} from '../gameSetup';
+import FriendAutocomplete from './FriendAutocomplete';
 
 export default function CreateGame({ onClose, onContinue }) {
   const [available, setAvailable] = useState(null);
@@ -12,8 +22,32 @@ export default function CreateGame({ onClose, onContinue }) {
   const [playerType, setPlayerType] = useState('registered');
   const [playerInput, setPlayerInput] = useState('');
   const [playerError, setPlayerError] = useState('');
+  const [friends, setFriends] = useState(null);
+  const [friendsError, setFriendsError] = useState('');
+  const [friendsRefresh, setFriendsRefresh] = useState(0);
 
   const owner = getUsername(localStorage.getItem('token'));
+  const suggestions = gameFriendSuggestions(friends ?? [], playerInput, {
+    owner,
+    players,
+    guests,
+    maxPlayers: MAX_TOTAL_PLAYERS,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    setFriendsError('');
+    getFriends()
+      .then((data) => {
+        if (!cancelled) setFriends(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setFriendsError(err.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [friendsRefresh]);
 
   useEffect(() => {
     getAllGamemodes()
@@ -36,6 +70,7 @@ export default function CreateGame({ onClose, onContinue }) {
       players,
       guests,
       maxPlayers: MAX_TOTAL_PLAYERS,
+      friends: playerType === 'registered' ? (friends ?? []) : undefined,
     });
     if (error) {
       setPlayerError(error);
@@ -139,47 +174,82 @@ export default function CreateGame({ onClose, onContinue }) {
                 value={playerType}
                 onChange={(event) => {
                   setPlayerType(event.target.value);
+                  setPlayerInput('');
                   setPlayerError('');
                 }}
               >
-                <option value="registered">Registered player</option>
+                <option value="registered">Friend</option>
                 <option value="guest">Guest player</option>
               </select>
             </div>
             <div className="player-picker-row">
-              <input
-                className="player-input"
-                type="text"
-                maxLength={255}
-                aria-label={
-                  playerType === 'guest' ? 'Guest name' : 'Opponent username'
+              <FriendAutocomplete
+                key={playerType}
+                suggestions={suggestions}
+                enabled={playerType === 'registered'}
+                label={
+                  playerType === 'guest' ? 'Guest name' : 'Friend username'
                 }
                 value={playerInput}
-                onChange={(e) => {
-                  setPlayerInput(e.target.value);
+                onChange={(value) => {
+                  setPlayerInput(value);
                   setPlayerError('');
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addPlayer();
-                  }
-                }}
+                onAdd={addPlayer}
                 placeholder={
                   playerType === 'guest'
                     ? 'Guest display name'
-                    : 'Opponent username'
+                    : 'Search your friends'
                 }
               />
-              <button className="btn" type="button" onClick={addPlayer}>
+              <button
+                className="btn"
+                type="button"
+                onClick={addPlayer}
+                disabled={playerType === 'registered' && friends === null}
+              >
                 Add
               </button>
             </div>
             {playerError && <p className="error-message">{playerError}</p>}
+            {playerType === 'registered' && (
+              <>
+                {friends === null && !friendsError && (
+                  <p className="player-hint">Loading friends…</p>
+                )}
+                {friendsError && (
+                  <div role="alert">
+                    <p className="error-message">
+                      Unable to load friends: {friendsError}
+                    </p>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => setFriendsRefresh((value) => value + 1)}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {friends?.length === 0 && (
+                  <p className="player-hint">
+                    No accepted friends yet. Add friends from the Friends page,
+                    or play solo or with guests.
+                  </p>
+                )}
+                {friends?.length > 0 &&
+                  playerInput.trim() &&
+                  suggestions.length === 0 && (
+                    <p className="player-hint">
+                      No available friends match this name.
+                    </p>
+                  )}
+              </>
+            )}
             <p className="player-hint">
               {playerType === 'guest'
                 ? 'Guests play in this match only. Their results are not saved to any profile.'
-                : 'Enter usernames exactly as registered — no search yet.'}
+                : 'Start typing to choose an accepted friend. Pending invitations cannot be added.'}
             </p>
           </div>
           <div className="modal-actions">

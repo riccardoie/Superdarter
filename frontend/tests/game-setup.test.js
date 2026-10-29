@@ -4,6 +4,7 @@ import {
   countdownModes,
   isSingleOut,
   playerNameError,
+  gameFriendSuggestions,
   startDraftGame,
 } from '../src/gameSetup.js';
 
@@ -64,6 +65,47 @@ test('registered players and guests share unique names and one player limit', ()
   assert.match(
     playerNameError('Guest Two', { ...names, maxPlayers: 3 }),
     /Max 3 players/
+  );
+});
+
+test('registered opponents must be accepted friends, while guest validation stays independent', () => {
+  const names = { owner: 'alice', players: [], guests: [], maxPlayers: 10 };
+  assert.match(
+    playerNameError('bob', { ...names, friends: [] }),
+    /accepted friends/
+  );
+  assert.equal(
+    playerNameError('bob', { ...names, friends: [{ username: 'bob' }] }),
+    ''
+  );
+  assert.match(
+    playerNameError('Bob', { ...names, friends: [{ username: 'bob' }] }),
+    /accepted friends/
+  );
+  assert.equal(playerNameError('Guest', names), '');
+});
+
+test('friend suggestions filter case-insensitively and exclude selected players, guests and self', () => {
+  const friends = ['alice', 'bob', 'Bobby', 'carol', 'dave'].map(
+    (username) => ({ username })
+  );
+  const selection = {
+    owner: 'alice',
+    players: ['bob'],
+    guests: ['dave'],
+    maxPlayers: 10,
+  };
+  assert.deepEqual(gameFriendSuggestions(friends, ' BO ', selection), [
+    'Bobby',
+  ]);
+  assert.deepEqual(gameFriendSuggestions(friends, '', selection), [
+    'Bobby',
+    'carol',
+  ]);
+  assert.deepEqual(gameFriendSuggestions(friends, 'unknown', selection), []);
+  assert.deepEqual(
+    gameFriendSuggestions(friends, '', { ...selection, maxPlayers: 3 }),
+    []
   );
 });
 
