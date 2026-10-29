@@ -65,8 +65,9 @@ public final class CountdownRules {
                 break;
             }
         }
-        // A blank submission explicitly represents three misses, not zero darts.
-        if (darts.length == 0) {
+        // Every submitted turn uses three darts, including omitted misses and busts.
+        // Only a successful checkout ends the turn with fewer darts.
+        if (!won) {
             thrown = Constants.MAX_DARTS_PER_TURN;
         }
         return new Result(bust ? startingPoints : remaining,

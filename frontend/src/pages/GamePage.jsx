@@ -16,7 +16,6 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import CompletedLegs from '../components/CompletedLegs';
 import { matchStats } from '../gameStats';
 import { isMatchWinningRound } from '../gameCompletion';
-import { isSingleOut } from '../gameSetup';
 
 function emptySlots() {
   return [
@@ -472,16 +471,6 @@ export default function GamePage() {
               </button>
             </div>
           </div>
-          {!boardFocus && (
-            <p className="game-shared-hint">
-              Playing on one device — each player enters their throws when it's
-              their turn. Enter 1–3 darts in order; leave unused darts blank.
-              {isSingleOut(game.gametype)
-                ? 'Reach exactly zero with any dart.'
-                : 'Finish on a double.'}{' '}
-              Register an empty round if all darts missed.
-            </p>
-          )}
         </div>
       ) : (
         <p className="state-message">
