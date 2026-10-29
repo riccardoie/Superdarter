@@ -11,6 +11,8 @@ let SidebarMenu;
 let FriendsPage;
 let FriendsLists;
 let ProfilePage;
+let ProfileComparison;
+let ProfileComparisonPicker;
 let api;
 const originalLocalStorage = globalThis.localStorage;
 const originalFetch = globalThis.fetch;
@@ -34,6 +36,12 @@ before(async () => {
   api = await server.ssrLoadModule('/src/api.js');
   ({ default: ProfilePage } = await server.ssrLoadModule(
     '/src/pages/ProfilePage.jsx'
+  ));
+  ({ default: ProfileComparison } = await server.ssrLoadModule(
+    '/src/components/ProfileComparison.jsx'
+  ));
+  ({ default: ProfileComparisonPicker } = await server.ssrLoadModule(
+    '/src/components/ProfileComparisonPicker.jsx'
   ));
 });
 
@@ -126,7 +134,75 @@ test('friend profiles provide navigation back to Friends without changing own-pr
     );
   assert.match(render('/profile/bob'), /href="\/friends"/);
   assert.match(render('/profile/bob'), /Loading profile/);
+  assert.match(render('/profile/bob'), /Compare with/);
+  assert.match(render('/profile/bob'), /alice \(you\)/);
+  assert.doesNotMatch(render('/profile/bob'), /<option[^>]*value="bob"/);
   assert.doesNotMatch(render('/profile'), /Back to Friends/);
+});
+
+test('profile comparison uses the two-player API contract without comparing a player to themselves', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push(JSON.parse(options.body));
+    return new Response('[]');
+  };
+  await api.getPlayerStats({ username: 'bob', compareWith: 'alice' });
+  await api.getPlayerStats({ username: 'bob', compareWith: 'carol' });
+  await api.getPlayerStats({ compareWith: 'bob' });
+  await api.getPlayerStats({ username: 'bob', compareWith: 'bob' });
+  assert.deepEqual(calls, [
+    [{ username: 'bob' }, { username: 'alice' }],
+    [{ username: 'bob' }, { username: 'carol' }],
+    [{ username: 'alice' }, { username: 'bob' }],
+    [{ username: 'bob' }],
+  ]);
+});
+
+test('comparison picker is a single button with a closed dropdown of selectable players', () => {
+  const html = renderToStaticMarkup(
+    createElement(ProfileComparisonPicker, {
+      candidates: ['alice', 'carol'],
+      owner: 'alice',
+      selected: 'carol',
+      loading: false,
+      error: '',
+      onChange: () => {},
+      onRetry: () => {},
+    })
+  );
+  assert.match(html, /<details class="profile-compare-picker">/);
+  assert.doesNotMatch(html, /<details[^>]*open|<select|<label/);
+  assert.match(html, /<summary[^>]*>Compare<\/summary>/);
+  assert.match(html, /alice \(you\)/);
+  assert.match(html, /aria-pressed="true">carol<\/button>/);
+  assert.match(html, /No comparison/);
+});
+
+test('comparison displays every statistic in the requested player order, not server response order', () => {
+  const html = renderToStaticMarkup(
+    createElement(ProfileComparison, {
+      usernames: ['bob', 'alice'],
+      stats: [
+        { username: 'alice', playedMatches: 8, avgPoints: 45.5 },
+        { username: 'bob', playedMatches: 3, avgPoints: 60 },
+      ],
+    })
+  );
+  assert.match(html, /<th scope="col">bob<\/th><th scope="col">alice<\/th>/);
+  assert.match(html, /Games played<\/th><td>3<\/td><td>8<\/td>/);
+  assert.match(html, /Average points<\/th><td>60\.00<\/td><td>45\.50<\/td>/);
+  assert.equal([...html.matchAll(/scope="row"/g)].length, 10);
+});
+
+test('comparison handles a player with no statistics without shifting the other player into their column', () => {
+  const html = renderToStaticMarkup(
+    createElement(ProfileComparison, {
+      usernames: ['bob', 'carol'],
+      stats: [{ username: 'carol', highestScore: 180 }],
+    })
+  );
+  assert.match(html, /bob<small>No statistics yet<\/small>/);
+  assert.match(html, /Highest score<\/th><td>Not available<\/td><td>180<\/td>/);
 });
 
 test('profile stats API requests the selected friend while defaulting to the current user', async () => {

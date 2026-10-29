@@ -283,6 +283,100 @@
   text-decoration: none;
 }
 
+.profile-heading-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.profile-heading-row h1 {
+  min-width: 0;
+}
+
+.profile-compare-picker {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.profile-compare-picker summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.profile-compare-picker summary::-webkit-details-marker {
+  display: none;
+}
+
+.profile-compare-options {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-1));
+  z-index: 40;
+  width: min(260px, calc(100vw - 48px));
+  max-height: 60dvh;
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 8px 24px var(--color-shadow);
+}
+
+.profile-compare-options button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.profile-compare-options button:hover,
+.profile-compare-options button[aria-pressed='true'] {
+  background: var(--color-primary-subtle);
+}
+
+.profile-comparison {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-comparison th,
+.profile-comparison td {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.profile-comparison th:first-child {
+  text-align: left;
+}
+
+.profile-comparison thead {
+  background: var(--color-surface);
+}
+
+.profile-comparison small {
+  display: block;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
 .friend-request-actions {
   display: flex;
   flex-wrap: wrap;

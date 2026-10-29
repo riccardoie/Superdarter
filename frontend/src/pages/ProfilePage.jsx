@@ -1,10 +1,27 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getPlayerStats } from '../api';
+import { getFriends, getPlayerStats, getUsername } from '../api';
+import ProfileComparison from '../components/ProfileComparison';
+import ProfileComparisonPicker from '../components/ProfileComparisonPicker';
+import {
+  comparisonCandidates,
+  PROFILE_STAT_FIELDS,
+  profileStatValue,
+} from '../profileStats';
 
 export default function ProfilePage() {
   const { username } = useParams();
+  const owner = getUsername(localStorage.getItem('token'));
+  const profile = username ?? owner;
   const [stats, setStats] = useState(null);
+  const [players, setPlayers] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [friendsLoading, setFriendsLoading] = useState(true);
+  const [friendsError, setFriendsError] = useState('');
+  const [friendsRefresh, setFriendsRefresh] = useState(0);
+  const [comparison, setComparison] = useState({ profile: null, username: '' });
+  const compareWith = comparison.profile === profile ? comparison.username : '';
+  const candidates = comparisonCandidates(owner, profile, friends);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -14,9 +31,12 @@ export default function ProfilePage() {
     setError(null);
     setStats(null);
 
-    getPlayerStats({ username })
+    getPlayerStats({ username: profile, compareWith })
       .then((data) => {
-        if (!cancelled) setStats(data[0] ?? null);
+        if (!cancelled) {
+          setPlayers(data);
+          setStats(data.find((player) => player.username === profile) ?? null);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err);
@@ -28,22 +48,31 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [username]);
+  }, [profile, compareWith]);
 
-  const statItems = stats
-    ? [
-        ['Games played', stats.playedMatches],
-        ['Games won', stats.wonMatches],
-        ['Legs played', stats.playedLegs],
-        ['Legs won', stats.wonLegs],
-        ['Darts thrown', stats.dartsThrown ?? 'Not available'],
-        ['Average points', stats.avgPoints.toFixed(2)],
-        ['Highest score', stats.highestScore],
-        ['Highest checkout', stats.highestCheckout],
-        ['Triple 20s', stats.triple20s],
-        ['Bullseyes', stats.bullseyes],
-      ]
-    : [];
+  useEffect(() => {
+    let cancelled = false;
+    setFriendsLoading(true);
+    setFriendsError('');
+    getFriends()
+      .then((data) => {
+        if (!cancelled) setFriends(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setFriendsError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setFriendsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [owner, friendsRefresh]);
+
+  const statItems = PROFILE_STAT_FIELDS.map(([label, field]) => [
+    label,
+    profileStatValue(stats, field),
+  ]);
 
   return (
     <div className="page profile-page">
@@ -53,7 +82,19 @@ export default function ProfilePage() {
             &larr; Back to Friends
           </Link>
         )}
-        <h1>{username ? `${username}’s profile` : 'Profile'}</h1>
+        <div className="profile-heading-row">
+          <h1>{username ? `${username}’s profile` : 'Profile'}</h1>
+          <ProfileComparisonPicker
+            key={profile}
+            candidates={candidates}
+            owner={owner}
+            selected={compareWith}
+            loading={friendsLoading}
+            error={friendsError}
+            onChange={(name) => setComparison({ profile, username: name })}
+            onRetry={() => setFriendsRefresh((value) => value + 1)}
+          />
+        </div>
       </div>
       {loading ? (
         <p className="state-message">Loading profile...</p>
@@ -61,6 +102,8 @@ export default function ProfilePage() {
         <p className="error-message" role="alert">
           Failed to load profile: {error.message}
         </p>
+      ) : compareWith ? (
+        <ProfileComparison usernames={[profile, compareWith]} stats={players} />
       ) : stats === null ? (
         <>
           <p className="state-message">

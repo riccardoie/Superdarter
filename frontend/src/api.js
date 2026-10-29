@@ -95,12 +95,15 @@ export function dismissFriendRequest({ requestId }) {
 }
 
 // Default to the signed-in player; profile links can request another account's stats.
-export function getPlayerStats({ username } = {}) {
+export function getPlayerStats({ username, compareWith } = {}) {
   const token = localStorage.getItem('token');
   const player = username ?? getUsername(token);
   return request('/api/playerStats', {
     method: 'POST',
-    body: [{ username: player }],
+    body: [
+      player,
+      ...(compareWith && compareWith !== player ? [compareWith] : []),
+    ].map((name) => ({ username: name })),
   });
 }
 
