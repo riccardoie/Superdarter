@@ -545,6 +545,11 @@ test('creation form automatically includes the owner in the ten-player limit', (
   assert.match(html, /Continue/);
   assert.match(html, /Player type/);
   assert.match(html, /Guest player/);
+  assert.match(html, /role="combobox"/);
+  assert.match(html, /aria-autocomplete="list"/);
+  assert.doesNotMatch(html, /<datalist/);
+  assert.match(html, /Friend username/);
+  assert.match(html, /Pending invitations cannot be added/);
   assert.doesNotMatch(html, /First to win|type="number"|Double-out/);
   assert.doesNotMatch(html, /session/i);
   globalThis.localStorage = { getItem: () => null };

@@ -22,6 +22,7 @@ class GuestPlayersIT extends AbstractIT {
     void rematchPreservesSettingsAndOriginalOrderWithFreshScores(final String gametype) {
         String alice = register("alice");
         String carol = register("carol");
+        befriend("alice", "carol");
         MatchResponse game = start(alice, create(alice, new CreateGameRequest(gametype,
                 List.of(new UserRequest("carol")), 2, List.of("Guest"))));
         assertThat(game.permissions().canRematch()).isFalse();
@@ -131,6 +132,7 @@ class GuestPlayersIT extends AbstractIT {
     void guestsRotateAcrossLegsAndRegisteredPlayersStillReceiveTheirOwnResults() {
         String token = register("alice");
         register("carol");
+        befriend("alice", "carol");
         MatchResponse game = start(token, create(token, new CreateGameRequest("501", List.of(
                 new UserRequest("carol")), 2, List.of("Guest One", "Guest Two"))));
         game = win(token, game, "Guest One");
@@ -212,6 +214,7 @@ class GuestPlayersIT extends AbstractIT {
             assertThat(countRows("matches")).isZero();
         }
         register("bob");
+        befriend("alice", "bob");
         assertThat(rest().postForEntity(GAMES_URL, authed(token,
                 new CreateGameRequest("301", List.of(new UserRequest("bob")), 1, List.of("bob"))),
                 String.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);

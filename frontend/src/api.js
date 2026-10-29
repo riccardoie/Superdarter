@@ -69,13 +69,47 @@ export function getAllGamemodes() {
   return request('/api/gamemode');
 }
 
-// Fetch cumulative stats for the signed-in player identified by the JWT subject.
-export function getPlayerStats() {
+export function getFriends() {
+  return request('/api/friends');
+}
+
+export function getFriendRequests() {
+  return request('/api/friends/requests');
+}
+
+export function searchFriendUsers({ query }) {
+  const text = query.trim();
+  if (!text) return Promise.resolve([]);
+  return request(`/api/friends/suggestions?query=${encodeURIComponent(text)}`);
+}
+
+export function sendFriendRequest({ username }) {
+  return request('/api/friends/requests', {
+    method: 'POST',
+    body: { username },
+  });
+}
+
+export function acceptFriendRequest({ requestId }) {
+  return request(`/api/friends/requests/${requestId}/accept`, {
+    method: 'POST',
+  });
+}
+
+export function dismissFriendRequest({ requestId }) {
+  return request(`/api/friends/requests/${requestId}`, { method: 'DELETE' });
+}
+
+// Default to the signed-in player; profile links can request another account's stats.
+export function getPlayerStats({ username, compareWith } = {}) {
   const token = localStorage.getItem('token');
-  const username = getUsername(token);
+  const player = username ?? getUsername(token);
   return request('/api/playerStats', {
     method: 'POST',
-    body: [{ username }],
+    body: [
+      player,
+      ...(compareWith && compareWith !== player ? [compareWith] : []),
+    ].map((name) => ({ username: name })),
   });
 }
 
