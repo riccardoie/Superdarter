@@ -219,6 +219,68 @@
   font-weight: 600;
 }
 
+.friend-autocomplete {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.friend-autocomplete .player-input {
+  width: 100%;
+  font-size: 16px;
+}
+
+.friend-suggestions {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 8px 24px var(--color-shadow);
+}
+
+.friend-suggestions li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.friend-suggestions li:hover,
+.friend-suggestions li[aria-selected='true'] {
+  background: var(--color-primary-subtle);
+}
+
+.friend-suggestion-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.friend-suggestions li > span:last-child {
+  min-width: 0;
+}
+
 .friends-sections {
   display: grid;
   gap: var(--space-5);

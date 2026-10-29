@@ -6,9 +6,11 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import lux.dartgame.constants.Constants;
 import lux.dartgame.dto.CreateGameRequest;
+import lux.dartgame.dto.FriendResponse;
 import lux.dartgame.dto.MatchResponse;
 import lux.dartgame.dto.PlayedRoundRequest;
 import lux.dartgame.dto.UserRequest;
@@ -42,14 +44,17 @@ public class MatchService {
     private final UserRepository users;
     private final GametypeRepository gametypes;
     private final MatchStatisticsService statistics;
+    private final FriendService friends;
 
     public MatchService(final MatchRepository matchesParam, final UserRepository usersParam,
                         final GametypeRepository gametypesParam,
-                        final MatchStatisticsService statisticsParam) {
+                        final MatchStatisticsService statisticsParam,
+                        final FriendService friendsParam) {
         matches = matchesParam;
         users = usersParam;
         gametypes = gametypesParam;
         statistics = statisticsParam;
+        friends = friendsParam;
     }
 
     @Transactional
@@ -68,8 +73,13 @@ public class MatchService {
         if (names.size() > Constants.MAX_NR_OF_PLAYERS) {
             throw new IllegalArgumentException("Maximum 10 players including the owner");
         }
+        Set<String> accepted = names.size() > 1 ? acceptedFriends(actor) : Set.of();
         for (String name : names) {
             User user = users.findByUserName(name).orElseThrow(UsernameNotFoundException::new);
+            if (!actor.equals(name) && !accepted.contains(name)) {
+                throw new IllegalArgumentException(
+                        "Only accepted friends can be added as registered players");
+            }
             MatchParticipant participant = new MatchParticipant();
             participant.setMatch(match);
             participant.setUser(user);
@@ -117,7 +127,14 @@ public class MatchService {
         match.setOwner(users.findByUserName(actor).orElseThrow(UsernameNotFoundException::new));
         match.setGametype(original.getGametype());
         match.setLegsToWin(original.getLegsToWin());
+        Set<String> accepted = acceptedFriends(actor);
         for (MatchParticipant previous : original.getParticipants()) {
+            if (previous.getUser() != null
+                    && !previous.getUser().getUserName().equals(actor)
+                    && !accepted.contains(previous.getUser().getUserName())) {
+                throw new IllegalArgumentException(
+                        "Only accepted friends can be added as registered players");
+            }
             MatchParticipant participant = new MatchParticipant();
             participant.setMatch(match);
             participant.setUser(previous.getUser());
@@ -290,6 +307,11 @@ public class MatchService {
     private long legsWon(final Match match, final String name) {
         return match.getLegs().stream().filter(l -> l.getStatus() == MatchStatus.COMPLETED
                 && name.equals(winnerName(l.getWinner(), l.getWinnerGuestName()))).count();
+    }
+
+    private Set<String> acceptedFriends(final String actor) {
+        return friends.friends(actor).stream().map(FriendResponse::username)
+                .collect(Collectors.toSet());
     }
 
     private void createLeg(final Match match) {

@@ -100,6 +100,7 @@ class GameFlowIT extends AbstractIT {
     void undoRestoresExactPlayerStateAndTurnOrderAfterReload() {
         String token = register("alice");
         register("bob");
+        befriend("alice", "bob");
         MatchResponse before = start(token, create(token, "501",
                 List.of(new UserRequest("bob"))).gameId());
         assertThat(before.permissions().canUndo()).isFalse();
@@ -126,6 +127,7 @@ class GameFlowIT extends AbstractIT {
     void undoCheckoutReopensMatchAndRollsBackAllParticipantsTotals() {
         String token = register("alice");
         register("bob");
+        befriend("alice", "bob");
         MatchResponse game = start(token, create(token, "301",
                 List.of(new UserRequest("bob"))).gameId());
         jdbc().update("UPDATE leg_player_stats SET points=50 WHERE leg_id=?", game.currentLegId());
@@ -301,6 +303,7 @@ class GameFlowIT extends AbstractIT {
     void createInitializesOneLegAndStableParticipants(final String gametype) {
         String alice = register("alice");
         String bob = register("bob");
+        befriend("alice", "bob");
         MatchResponse game = create(alice, gametype, List.of(new UserRequest("bob")));
         assertThat(game.status()).isEqualTo(MatchStatus.PENDING);
         assertThat(game.owner()).isEqualTo("alice");
@@ -325,6 +328,7 @@ class GameFlowIT extends AbstractIT {
     void sharedDeviceScoringReloadAndEmptyRounds() {
         String alice = register("alice");
         String bob = register("bob");
+        befriend("alice", "bob");
         MatchResponse pending = create(alice, "501", List.of(new UserRequest("bob")));
         MatchResponse game = start(bob, pending.gameId());
         assertThat(game.status()).isEqualTo(MatchStatus.IN_PROGRESS);
@@ -429,6 +433,7 @@ class GameFlowIT extends AbstractIT {
         List<UserRequest> others = java.util.stream.IntStream.rangeClosed(1, 10)
                 .mapToObj(i -> {
                     register("player" + i);
+                    befriend("alice", "player" + i);
                     return new UserRequest("player" + i);
                 }).toList();
         MatchResponse game = create(token, "501", others.subList(0, 9));
@@ -500,6 +505,7 @@ class GameFlowIT extends AbstractIT {
     void winnerUpdatesEveryParticipantIncludingZeroTurnAverage() {
         String token = register("alice");
         register("bob");
+        befriend("alice", "bob");
         MatchResponse game = start(token, create(token, "301",
                 List.of(new UserRequest("bob"))).gameId());
         // A saved leg close to checkout; Bob has not thrown yet.
@@ -533,6 +539,8 @@ class GameFlowIT extends AbstractIT {
         String token = register("alice");
         register("bob");
         register("carol");
+        befriend("alice", "bob");
+        befriend("alice", "carol");
         var created = rest().postForEntity(GAMES_URL, authed(token,
                 new CreateGameRequest(type, List.of(new UserRequest("bob"),
                         new UserRequest("carol")), 2)), MatchResponse.class);

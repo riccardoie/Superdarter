@@ -13,6 +13,7 @@ let FriendsLists;
 let ProfilePage;
 let ProfileComparison;
 let ProfileComparisonPicker;
+let FriendAutocomplete;
 let api;
 const originalLocalStorage = globalThis.localStorage;
 const originalFetch = globalThis.fetch;
@@ -43,12 +44,49 @@ before(async () => {
   ({ default: ProfileComparisonPicker } = await server.ssrLoadModule(
     '/src/components/ProfileComparisonPicker.jsx'
   ));
+  ({ default: FriendAutocomplete } = await server.ssrLoadModule(
+    '/src/components/FriendAutocomplete.jsx'
+  ));
 });
 
 after(async () => {
   globalThis.fetch = originalFetch;
   globalThis.localStorage = originalLocalStorage;
   await server?.close();
+});
+
+test('friend autocomplete uses an accessible custom combobox rather than browser suggestions', () => {
+  const html = renderToStaticMarkup(
+    createElement(FriendAutocomplete, {
+      value: 'bo',
+      suggestions: ['bob', 'Bobby'],
+      label: 'Friend username',
+      placeholder: 'Search your friends',
+      onChange: () => {},
+      onAdd: () => {},
+    })
+  );
+  assert.match(html, /class="friend-autocomplete"/);
+  assert.match(html, /role="combobox"/);
+  assert.match(html, /aria-autocomplete="list"/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /value="bo"/);
+  assert.doesNotMatch(html, /<datalist|\slist="/);
+});
+
+test('guest name entry keeps normal text input without friend suggestions', () => {
+  const html = renderToStaticMarkup(
+    createElement(FriendAutocomplete, {
+      value: 'Guest',
+      suggestions: ['bob'],
+      enabled: false,
+      label: 'Guest name',
+      onChange: () => {},
+      onAdd: () => {},
+    })
+  );
+  assert.match(html, /aria-label="Guest name"/);
+  assert.doesNotMatch(html, /combobox|listbox|aria-expanded|<datalist/);
 });
 
 test('Friends page loads server data and Add friend opens a dialog instead of an inline form', () => {

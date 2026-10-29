@@ -9,7 +9,11 @@ import java.util.concurrent.TimeUnit;
 import lux.dartgame.dto.FriendInvitationsResponse;
 import lux.dartgame.dto.FriendRequestResponse;
 import lux.dartgame.dto.FriendResponse;
+import lux.dartgame.dto.CreateGameRequest;
+import lux.dartgame.dto.MatchResponse;
+import lux.dartgame.dto.PlayedRoundRequest;
 import lux.dartgame.dto.SendFriendRequest;
+import lux.dartgame.dto.UserRequest;
 import lux.dartgame.model.FriendRequestStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,6 +26,77 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class FriendsIT extends AbstractIT {
     private static final String FRIENDS = "/api/friends";
     private static final String REQUESTS = FRIENDS + "/requests";
+
+    @Test
+    void gameCreationRequiresAcceptedFriendshipNotMerelyAnExistingAccountOrInvitation() {
+        String alice = register("alice");
+        String bob = register("bob");
+        var roster = new CreateGameRequest("301", List.of(new UserRequest("bob")));
+        assertThat(rest().postForEntity(GAMES_URL, authed(alice, roster), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        FriendRequestResponse pending = send(alice, "bob");
+        assertThat(rest().postForEntity(GAMES_URL, authed(alice, roster), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(rest().postForEntity(GAMES_URL, authed(bob,
+                new CreateGameRequest("301", List.of(new UserRequest("alice")))), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(countRows("matches")).isZero();
+        rest().postForEntity(acceptUrl(pending), authed(bob, null), String.class);
+        var created = rest().postForEntity(GAMES_URL, authed(alice, roster), MatchResponse.class);
+        assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(created.getBody().players()).extracting(MatchResponse.Player::username)
+                .containsExactly("alice", "bob");
+        assertThat(rest().postForEntity(GAMES_URL, authed(bob,
+                new CreateGameRequest("301", List.of(new UserRequest("alice")))), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    void everyRegisteredOpponentMustBeTheCreatorsFriendWhileSoloAndGuestsRemainAvailable() {
+        String alice = register("alice");
+        register("bob");
+        register("carol");
+        befriend("alice", "bob");
+        befriend("bob", "carol");
+        assertThat(rest().postForEntity(GAMES_URL, authed(alice,
+                new CreateGameRequest("301", List.of(new UserRequest("bob"),
+                        new UserRequest("carol")))), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(countRows("matches")).isZero();
+        assertThat(countRows("match_participants")).isZero();
+        assertThat(rest().postForEntity(GAMES_URL, authed(alice,
+                new CreateGameRequest("301", List.of())), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.CREATED);
+        assertThat(rest().postForEntity(GAMES_URL, authed(alice,
+                new CreateGameRequest("301", List.of(), 1, List.of("Guest"))), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    void rematchesCannotBypassTheAcceptedFriendRestrictionForTheNewCreator() {
+        String alice = register("alice");
+        String bob = register("bob");
+        register("carol");
+        befriend("alice", "bob");
+        befriend("alice", "carol");
+        MatchResponse game = rest().postForObject(GAMES_URL, authed(alice,
+                new CreateGameRequest("301 Single Out", List.of(new UserRequest("bob"),
+                        new UserRequest("carol")))), MatchResponse.class);
+        game = rest().postForObject(GAMES_URL + "/" + game.gameId() + "/start",
+                authed(alice, null), MatchResponse.class);
+        jdbc().update("UPDATE leg_player_stats SET points=1 WHERE leg_id=? AND user_id="
+                + "(SELECT user_id FROM users WHERE user_name='alice')", game.currentLegId());
+        game = rest().postForObject(GAMES_URL + "/" + game.gameId() + "/rounds",
+                authed(alice, new PlayedRoundRequest("alice", "1 1", game.currentLegId(),
+                        game.revision())), MatchResponse.class);
+        String rematchUrl = GAMES_URL + "/" + game.gameId() + "/rematch";
+        assertThat(rest().postForEntity(rematchUrl, authed(bob, null), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(countRows("matches")).isEqualTo(1);
+        befriend("bob", "carol");
+        assertThat(rest().postForEntity(rematchUrl, authed(bob, null), String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
 
     @Test
     void friendsRequireExplicitRecipientAcceptanceAndPersistForBothUsers() {
