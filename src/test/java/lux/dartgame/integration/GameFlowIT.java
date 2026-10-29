@@ -267,10 +267,10 @@ class GameFlowIT extends AbstractIT {
         }
         game = play(token, game, "alice", "20 1"); // Bust: leaves one.
         var stats = game.players().getFirst().scoringStats();
-        assertThat(stats.dartsThrown()).isEqualTo(10);
+        assertThat(stats.dartsThrown()).isEqualTo(15);
         assertThat(stats.firstNineDarts()).isEqualTo(9);
-        assertThat(stats.firstNinePoints()).isEqualTo(480);
-        assertThat(stats.firstNineAverage()).isEqualTo(160f);
+        assertThat(stats.firstNinePoints()).isEqualTo(380);
+        assertThat(stats.firstNineAverage()).isEqualTo(380f / 3);
         assertThat(stats.score180()).isEqualTo(1);
         assertThat(stats.score100()).isEqualTo(3);
         assertThat(stats.score40()).isZero();
@@ -279,12 +279,12 @@ class GameFlowIT extends AbstractIT {
         game = play(token, game, "alice", "1 1 10 2 20 3"); // Ignore after checkout.
         var reloaded = get(token, game.gameId());
         assertThat(reloaded.status()).isEqualTo(MatchStatus.COMPLETED);
-        assertThat(reloaded.players().getFirst().scoringStats().dartsThrown()).isEqualTo(12);
-        assertThat(reloaded.players().getFirst().scoringStats().firstNinePoints()).isEqualTo(480);
+        assertThat(reloaded.players().getFirst().scoringStats().dartsThrown()).isEqualTo(17);
+        assertThat(reloaded.players().getFirst().scoringStats().firstNinePoints()).isEqualTo(380);
         assertThat(reloaded.legs().getFirst().players().getFirst().scoringStats())
                 .isEqualTo(reloaded.players().getFirst().scoringStats());
         assertThat(jdbc().queryForObject("SELECT darts_thrown FROM leg_player_stats",
-                Integer.class)).isEqualTo(12);
+                Integer.class)).isEqualTo(17);
     }
 
     @Test

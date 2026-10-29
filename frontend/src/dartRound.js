@@ -13,20 +13,16 @@ export function dartInputError(slot) {
   return '';
 }
 
-// Only trailing empty slots are unused darts; gaps would lose throw order.
+// Blank slots are misses; only the scoring rules can end a turn early at checkout.
 export function canSubmitRound(slots) {
-  if (slots.some((slot) => dartInputError(slot))) return false;
-  const firstEmpty = slots.findIndex((slot) => slot.value === '');
-  return (
-    firstEmpty === -1 ||
-    slots.slice(firstEmpty).every((slot) => slot.value === '')
-  );
+  return !slots.some((slot) => dartInputError(slot));
 }
 
 export function serializeRound(slots) {
   return slots
-    .filter((slot) => slot.value !== '')
-    .map((slot) => `${slot.value} ${slot.multiplier}`)
+    .map((slot) =>
+      slot.value === '' ? '0 1' : `${slot.value} ${slot.multiplier}`
+    )
     .join(' ');
 }
 

@@ -29,33 +29,37 @@ test('text entry accepts only dart numbers and their permitted multipliers', () 
   assert.equal(canSubmitRound([dart(0, 2), dart(), dart()]), false);
 });
 
-test('a single dart can be submitted without filling unused slots', () => {
+test('a single dart submission fills the remaining slots with misses', () => {
   const slots = [dart('20', 2), dart(), dart()];
   assert.equal(canSubmitRound(slots), true);
-  assert.equal(serializeRound(slots), '20 2');
+  assert.equal(serializeRound(slots), '20 2 0 1 0 1');
 });
 
 test('two or three darts can be submitted and misses retain their position', () => {
   const slots = [dart(0), dart(20, 2), dart()];
   assert.equal(canSubmitRound(slots), true);
-  assert.equal(serializeRound(slots), '0 1 20 2');
+  assert.equal(serializeRound(slots), '0 1 20 2 0 1');
   slots[2] = dart('0');
   assert.equal(canSubmitRound(slots), true);
   assert.equal(serializeRound(slots), '0 1 20 2 0 1');
 });
 
-test('empty rounds submit as all misses, but gaps between throws cannot be submitted', () => {
+test('empty rounds and blanks between throws submit as misses in their original positions', () => {
   const emptyRound = [dart(), dart(), dart()];
   assert.equal(canSubmitRound(emptyRound), true);
-  assert.equal(serializeRound(emptyRound), '');
-  assert.equal(canSubmitRound([dart(), dart(20), dart()]), false);
-  assert.equal(canSubmitRound([dart(20), dart(), dart(20)]), false);
+  assert.equal(serializeRound(emptyRound), '0 1 0 1 0 1');
+  const leadingBlank = [dart(), dart(20), dart()];
+  const middleBlank = [dart(20), dart(), dart(20)];
+  assert.equal(canSubmitRound(leadingBlank), true);
+  assert.equal(serializeRound(leadingBlank), '0 1 20 1 0 1');
+  assert.equal(canSubmitRound(middleBlank), true);
+  assert.equal(serializeRound(middleBlank), '20 1 0 1 20 1');
 });
 
 test('an explicitly thrown miss can be submitted alone', () => {
   const slots = [dart('0'), dart(), dart()];
   assert.equal(canSubmitRound(slots), true);
-  assert.equal(serializeRound(slots), '0 1');
+  assert.equal(serializeRound(slots), '0 1 0 1 0 1');
 });
 
 test('undo clears the last dart and selects its slot without changing earlier throws', () => {
@@ -64,7 +68,7 @@ test('undo clears the last dart and selects its slot without changing earlier th
   assert.deepEqual(result.slots, [dart('20', 3), dart(20, 2), dart()]);
   assert.equal(result.activeDart, 2);
   assert.equal(slots[2].value, 0);
-  assert.equal(serializeRound(result.slots), '20 3 20 2');
+  assert.equal(serializeRound(result.slots), '20 3 20 2 0 1');
 });
 
 test('repeated undo removes all entered darts, including misses', () => {

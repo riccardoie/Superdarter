@@ -475,7 +475,7 @@ export default function GamePage() {
           {!boardFocus && (
             <p className="game-shared-hint">
               Playing on one device — each player enters their throws when it's
-              their turn. Enter 1–3 darts in order; leave unused darts blank.
+              their turn. Enter darts in order; blank fields count as misses.
               {isSingleOut(game.gametype)
                 ? 'Reach exactly zero with any dart.'
                 : 'Finish on a double.'}{' '}

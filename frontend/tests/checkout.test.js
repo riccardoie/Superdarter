@@ -106,7 +106,7 @@ test('preview stops at checkout or bust and restores the whole turn on bust', ()
   }
 });
 
-test('preview handles a completed turn and ignores entries after a gap', () => {
+test('preview handles a completed turn and counts blanks before later entries as misses', () => {
   const complete = previewCheckout(301, [
     dart(20, 3),
     dart(20, 3),
@@ -116,8 +116,9 @@ test('preview handles a completed turn and ignores entries after a gap', () => {
   assert.equal(complete.remaining, 121);
   assert.equal(complete.route, null);
   const gap = previewCheckout(40, [empty(), dart(20, 2), empty()]);
-  assert.equal(gap.remaining, 40);
-  assert.equal(gap.dartsLeft, 3);
+  assert.equal(gap.remaining, 0);
+  assert.equal(gap.status, 'checkout');
+  assert.equal(gap.dartsLeft, 1);
   assert.equal(previewCheckout(undefined, []), null);
 });
 
