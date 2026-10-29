@@ -69,6 +69,31 @@ export function getAllGamemodes() {
   return request('/api/gamemode');
 }
 
+export function getFriends() {
+  return request('/api/friends');
+}
+
+export function getFriendRequests() {
+  return request('/api/friends/requests');
+}
+
+export function sendFriendRequest({ username }) {
+  return request('/api/friends/requests', {
+    method: 'POST',
+    body: { username },
+  });
+}
+
+export function acceptFriendRequest({ requestId }) {
+  return request(`/api/friends/requests/${requestId}/accept`, {
+    method: 'POST',
+  });
+}
+
+export function dismissFriendRequest({ requestId }) {
+  return request(`/api/friends/requests/${requestId}`, { method: 'DELETE' });
+}
+
 // Fetch cumulative stats for the signed-in player identified by the JWT subject.
 export function getPlayerStats() {
   const token = localStorage.getItem('token');

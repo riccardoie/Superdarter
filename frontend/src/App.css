@@ -219,6 +219,50 @@
   font-weight: 600;
 }
 
+.friends-sections {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.friends-sections h2 {
+  margin-bottom: var(--space-3);
+  font-size: 1.1rem;
+}
+
+.friends-list .friend-request-row {
+  flex-wrap: wrap;
+}
+
+.friend-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.friend-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.friend-request-row button {
+  min-height: 44px;
+}
+
+.friend-request-status {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.friends-notice,
+.friends-load-error {
+  margin-bottom: var(--space-4);
+}
+
+.friends-notice {
+  color: var(--color-success);
+}
+
 .page {
   padding: var(--space-1) var(--space-1);
 }

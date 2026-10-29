@@ -81,5 +81,7 @@ duplicates, and constraints enforce no self-requests and valid acceptance state.
 User rows are locked in ID order when sending requests; invitation rows are locked
 when accepting or dismissing them, keeping concurrent operations consistent.
 
-The current Friends frontend is still a local prototype; it is not wired to these
-endpoints yet.
+The Friends frontend loads these endpoints, sends invitations through the Add
+friend dialog, and displays incoming Accept/Decline and outgoing Withdraw actions.
+Only accepted friends appear in the friends list. It refreshes after actions,
+when the page becomes visible or regains focus, and every 15 seconds while visible.
