@@ -7,6 +7,8 @@ import lux.dartgame.exception.EmailAlreadyExistsException;
 import lux.dartgame.exception.GameModeNotFoundException;
 import lux.dartgame.exception.GameNotFoundException;
 import lux.dartgame.exception.GameConflictException;
+import lux.dartgame.exception.FriendConflictException;
+import lux.dartgame.exception.FriendRequestNotFoundException;
 import lux.dartgame.exception.InvalidScoreException;
 import lux.dartgame.exception.InvalidTurnException;
 import lux.dartgame.exception.RoleNotFoundException;
@@ -83,6 +85,17 @@ public final class GlobalExceptionHandler {
     @ExceptionHandler(GameConflictException.class)
     public ResponseEntity<ErrorResponse> handleGameConflict(final GameConflictException e) {
         return respond(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    @ExceptionHandler(FriendConflictException.class)
+    public ResponseEntity<ErrorResponse> handleFriendConflict(final FriendConflictException e) {
+        return respond(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    @ExceptionHandler(FriendRequestNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleFriendRequestNotFound(
+            final FriendRequestNotFoundException e) {
+        return respond(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

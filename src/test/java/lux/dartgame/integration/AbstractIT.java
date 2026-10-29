@@ -52,7 +52,7 @@ abstract class AbstractIT {
      * a test, and the endpoints under test need them to exist.
      */
     private static final String RESET_STATEMENT =
-            "TRUNCATE TABLE leg_player_stats, legs, match_participants, matches, "
+            "TRUNCATE TABLE friend_requests, leg_player_stats, legs, match_participants, matches, "
                     + "playerstats, users RESTART IDENTITY CASCADE";
 
     private static final String SECRET_RAW = "lux-integration-test-secret-key-32bytes!";
