@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   abandonGame,
   deleteGame,
   getGameState,
   playRound,
+  rematchGame,
   startGame,
   undoRound,
 } from '../api';
@@ -38,6 +39,7 @@ export default function GamePage() {
   const [managementAction, setManagementAction] = useState(null);
   const [legNotice, setLegNotice] = useState('');
   const [confirmFinish, setConfirmFinish] = useState(false);
+  const rematchBusy = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,6 +212,23 @@ export default function GamePage() {
     } catch (err) {
       setActionError(`Failed to start game: ${err.message}`);
     } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRematch() {
+    if (rematchBusy.current || submitting || !game.permissions.canRematch)
+      return;
+    rematchBusy.current = true;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      const fresh = await rematchGame({ gameId });
+      navigate(`/games/${fresh.gameId}`);
+    } catch (err) {
+      setActionError(`Failed to start rematch: ${err.message}`);
+    } finally {
+      rematchBusy.current = false;
       setSubmitting(false);
     }
   }
@@ -481,6 +500,18 @@ export default function GamePage() {
         </p>
       )}
       <CompletedLegs game={game} />
+      {finished && game.permissions.canRematch && (
+        <div className="game-round-panel">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleRematch}
+            disabled={submitting}
+          >
+            {submitting ? 'Starting rematch…' : 'Rematch'}
+          </button>
+        </div>
+      )}
       {confirmFinish && (
         <ConfirmDialog
           title="Was the game completed?"

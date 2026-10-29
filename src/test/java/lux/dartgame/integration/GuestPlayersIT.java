@@ -9,12 +9,95 @@ import lux.dartgame.dto.UndoRoundRequest;
 import lux.dartgame.dto.UserRequest;
 import lux.dartgame.model.MatchStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GuestPlayersIT extends AbstractIT {
+    @ParameterizedTest
+    @ValueSource(strings = {"301", "501", "301 Single Out", "501 Single Out"})
+    void rematchPreservesSettingsAndOriginalOrderWithFreshScores(final String gametype) {
+        String alice = register("alice");
+        String carol = register("carol");
+        MatchResponse game = start(alice, create(alice, new CreateGameRequest(gametype,
+                List.of(new UserRequest("carol")), 2, List.of("Guest"))));
+        assertThat(game.permissions().canRematch()).isFalse();
+        game = win(alice, game, "Guest");
+        game = win(alice, game, "Guest");
+        assertThat(game.status()).isEqualTo(MatchStatus.COMPLETED);
+        assertThat(game.permissions().canRematch()).isTrue();
+        var totals = jdbc().queryForList("SELECT * FROM playerstats ORDER BY player_id");
+        var response = rest().postForEntity(GAMES_URL + "/" + game.gameId() + "/rematch",
+                authed(carol, null), MatchResponse.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        MatchResponse rematch = response.getBody();
+        assertThat(rematch.gameId()).isNotEqualTo(game.gameId());
+        assertThat(rematch.owner()).isEqualTo("carol");
+        assertThat(rematch.gametype()).isEqualTo(gametype);
+        assertThat(rematch.startingPoints()).isEqualTo(game.startingPoints());
+        assertThat(rematch.legsToWin()).isEqualTo(2);
+        assertThat(rematch.format()).isEqualTo(game.format());
+        assertThat(rematch.status()).isEqualTo(MatchStatus.IN_PROGRESS);
+        assertThat(rematch.turn()).isEqualTo("alice");
+        assertThat(rematch.winner()).isNull();
+        assertThat(rematch.finishedAt()).isNull();
+        assertThat(rematch.startedAt()).isNotNull();
+        assertThat(rematch.legs()).hasSize(1);
+        assertThat(rematch.players()).extracting(MatchResponse.Player::username)
+                .containsExactly("alice", "carol", "Guest");
+        assertThat(rematch.players()).extracting(MatchResponse.Player::guest)
+                .containsExactly(false, false, true);
+        assertThat(rematch.players()).allSatisfy(player -> {
+            assertThat(player.points()).isEqualTo(rematch.startingPoints());
+            assertThat(player.turns()).isZero();
+            assertThat(player.legsWon()).isZero();
+            assertThat(player.highestScore()).isZero();
+            assertThat(player.scoringStats().dartsThrown()).isZero();
+            assertThat(player.scoringStats().firstNinePoints()).isZero();
+        });
+        assertThat(rematch.permissions().canUndo()).isFalse();
+        assertThat(get(alice, game)).isEqualTo(game);
+        assertThat(get(carol, rematch)).isEqualTo(rematch);
+        assertThat(countRows("users")).isEqualTo(2);
+        assertThat(jdbc().queryForList("SELECT * FROM playerstats ORDER BY player_id")).isEqualTo(totals);
+    }
+
+    @Test
+    void rematchRequiresAnEndedGameAndARegisteredParticipant() {
+        String alice = register("alice");
+        String outsider = register("Guest");
+        MatchResponse game = create(alice,
+                new CreateGameRequest("301", List.of(), 1, List.of("Guest")));
+        assertThat(rest().postForEntity(GAMES_URL + "/" + game.gameId() + "/rematch",
+                authed(alice, null), String.class).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        game = start(alice, game);
+        assertThat(rest().postForEntity(GAMES_URL + "/" + game.gameId() + "/rematch",
+                authed(alice, null), String.class).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        game = win(alice, game, "alice");
+        assertThat(rest().postForEntity(GAMES_URL + "/" + game.gameId() + "/rematch",
+                authed(outsider, null), String.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(countRows("matches")).isEqualTo(1);
+    }
+
+    @Test
+    void abandonedGamesCanBeRematched() {
+        String token = register("alice");
+        MatchResponse game = start(token, create(token,
+                new CreateGameRequest("301", List.of(), 2, List.of("Guest"))));
+        game = win(token, game, "alice");
+        game = rest().postForObject(GAMES_URL + "/" + game.gameId() + "/abandon",
+                authed(token, null), MatchResponse.class);
+        assertThat(game.permissions().canRematch()).isTrue();
+        MatchResponse rematch = rest().postForObject(GAMES_URL + "/" + game.gameId() + "/rematch",
+                authed(token, null), MatchResponse.class);
+        assertThat(rematch.status()).isEqualTo(MatchStatus.IN_PROGRESS);
+        assertThat(rematch.players()).allMatch(player -> player.points() == 301 && player.legsWon() == 0);
+        assertThat(get(token, game)).isEqualTo(game);
+    }
+
     @Test
     void guestCanWinReloadUndoAndReplayWithoutCreatingAnAccountOrProfile() {
         String token = register("alice");

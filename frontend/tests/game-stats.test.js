@@ -460,6 +460,36 @@ test('stale undo is not retried against a newer round', async () => {
   assert.equal(count, 1);
 });
 
+test('rematch requests a new game without sending scores or reconstructing player settings', async () => {
+  const calls = [];
+  const fresh = { gameId: 99, status: 'IN_PROGRESS' };
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify(fresh), { status: 201 });
+  };
+  assert.deepEqual(await api.rematchGame({ gameId: 7 }), fresh);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].url.endsWith('/api/games/7/rematch'));
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.body, undefined);
+});
+
+test('failed rematches preserve the server error and do not retry creation', async () => {
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response(
+      JSON.stringify({ message: 'This game is not finished' }),
+      { status: 409 }
+    );
+  };
+  await assert.rejects(
+    api.rematchGame({ gameId: 7 }),
+    (error) => error.status === 409
+  );
+  assert.equal(calls, 1);
+});
+
 test('average is zero before the first turn', () => {
   const html = renderToStaticMarkup(
     createElement(GameStatsTable, {
