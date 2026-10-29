@@ -8,8 +8,12 @@ import { createServer } from 'vite';
 let server;
 let GamesPage;
 let SidebarMenu;
+let FriendsPage;
+const originalLocalStorage = globalThis.localStorage;
 
 before(async () => {
+  const token = `header.${Buffer.from(JSON.stringify({ sub: 'alice' })).toString('base64url')}.signature`;
+  globalThis.localStorage = { getItem: () => token };
   server = await createServer({ server: { middlewareMode: true, hmr: false } });
   ({ default: GamesPage } = await server.ssrLoadModule(
     '/src/pages/GamesPage.jsx'
@@ -17,10 +21,41 @@ before(async () => {
   ({ default: SidebarMenu } = await server.ssrLoadModule(
     '/src/components/SidebarMenu.jsx'
   ));
+  ({ default: FriendsPage } = await server.ssrLoadModule(
+    '/src/pages/FriendsPage.jsx'
+  ));
 });
 
 after(async () => {
+  globalThis.localStorage = originalLocalStorage;
   await server?.close();
+});
+
+test('Friends page starts empty and Add friend opens a dialog instead of an inline form', () => {
+  const html = renderToStaticMarkup(createElement(FriendsPage));
+  assert.match(html, /<h1>Friends<\/h1>/);
+  assert.match(html, /Add friend/);
+  assert.match(html, /No friends yet/);
+  assert.doesNotMatch(
+    html,
+    /Frontend preview|No friend requests are sent|friend-username/
+  );
+  assert.match(html, /aria-haspopup="dialog"/);
+  assert.match(html, /aria-expanded="false"/);
+});
+
+test('Friends is available through its own menu link', () => {
+  const html = renderToStaticMarkup(
+    createElement(
+      MemoryRouter,
+      {
+        initialEntries: ['/friends'],
+      },
+      createElement(SidebarMenu, { isOpen: true, onClose: () => {} })
+    )
+  );
+  assert.match(html, /aria-current="page"[^>]*href="\/friends"/);
+  assert.match(html, />Friends<\/a>/);
 });
 
 test('the completed games page has its own title and no game creation controls', () => {
