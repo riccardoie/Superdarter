@@ -26,6 +26,10 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               {/* Pages with topbar+sidemenu, log in required*/}
               <Route path="/games" element={<GamesPage />} />
+              <Route
+                path="/completed-games"
+                element={<GamesPage completed />}
+              />
               <Route path="/games/new" element={<GameSetupPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/games/:gameId" element={<GamePage />} />

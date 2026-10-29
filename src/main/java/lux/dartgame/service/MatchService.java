@@ -105,6 +105,34 @@ public class MatchService {
                 .map(m -> response(m, actor)).toList();
     }
 
+    @Transactional
+    public MatchResponse rematch(final long id, final String actor) {
+        Match original = locked(id);
+        requireParticipant(original, actor);
+        if (original.getStatus() != MatchStatus.COMPLETED
+                && original.getStatus() != MatchStatus.ABANDONED) {
+            throw new GameConflictException("Finish the current game before starting a rematch");
+        }
+        Match match = new Match();
+        match.setOwner(users.findByUserName(actor).orElseThrow(UsernameNotFoundException::new));
+        match.setGametype(original.getGametype());
+        match.setLegsToWin(original.getLegsToWin());
+        for (MatchParticipant previous : original.getParticipants()) {
+            MatchParticipant participant = new MatchParticipant();
+            participant.setMatch(match);
+            participant.setUser(previous.getUser());
+            participant.setGuestName(previous.getGuestName());
+            participant.setPosition(previous.getPosition());
+            match.getParticipants().add(participant);
+        }
+        match.setStatus(MatchStatus.IN_PROGRESS);
+        match.setStartedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
+        createLeg(match);
+        advanceRevision(match);
+        matches.saveAndFlush(match);
+        return response(match, actor);
+    }
+
     @Transactional(readOnly = true)
     public MatchResponse get(final long id, final String actor) {
         Match match = matches.findById(id).orElseThrow(() -> new GameNotFoundException(id));
@@ -361,7 +389,10 @@ public class MatchService {
                 new MatchResponse.Permissions(member && pending, member && playing,
                         manager && pending, manager && playing,
                         member && (playing || match.getStatus() == MatchStatus.COMPLETED)
-                                && !match.getRounds().isEmpty()), match.getLegsToWin());
+                                && !match.getRounds().isEmpty(),
+                        member && (match.getStatus() == MatchStatus.COMPLETED
+                                || match.getStatus() == MatchStatus.ABANDONED)),
+                match.getLegsToWin());
     }
 
     private List<MatchResponse.Player> players(final Match match, final Leg leg) {

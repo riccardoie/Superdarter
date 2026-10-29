@@ -4,6 +4,7 @@ import { matchStats } from '../gameStats';
 import { isSingleOut } from '../gameSetup';
 
 export default function GameScoreboard({ game, slots, compact = false }) {
+  const solo = game.players.length === 1;
   const activeIndex = game.players.findIndex(
     (player) => player.username === game.turn
   );
@@ -17,6 +18,7 @@ export default function GameScoreboard({ game, slots, compact = false }) {
   const stats = new Map(
     matchStats(game).map((player) => [player.username, player])
   );
+  const soloStats = solo ? stats.get(activePlayer.username) : null;
   const averages = new Map(
     [...stats.values()].map((player) => [
       player.username,
@@ -29,7 +31,7 @@ export default function GameScoreboard({ game, slots, compact = false }) {
   return (
     <>
       <div
-        className={`game-turn-overview${nextPlayer ? '' : ' game-turn-solo'}${compact ? ' game-turn-overview-compact' : ''}`}
+        className={`game-turn-overview${nextPlayer ? '' : ' game-turn-solo'}${compact && !solo ? ' game-turn-overview-compact' : ''}`}
       >
         <section className="game-current-player" aria-label="Current player">
           <h2>{game.turn ? 'Now throwing' : 'Ready to play'}</h2>
@@ -50,14 +52,30 @@ export default function GameScoreboard({ game, slots, compact = false }) {
                 Avg: {averages.get(player.username).toFixed(1)}
               </span>
               <span className="game-scoreboard-stats">
-                {game.legsToWin > 1 && (
+                {(game.legsToWin > 1 || solo) && (
                   <span className="game-scoreboard-leg-wins">
-                    Legs: {player.legsWon} / {game.legsToWin}
+                    Legs: {player.legsWon ?? 0} / {game.legsToWin ?? 1}
                   </span>
                 )}
                 <span className="game-scoreboard-turns">
                   Turns: {player.turns}
                 </span>
+                {solo && (
+                  <>
+                    <span className="game-scoreboard-first-nine">
+                      First 9 avg:{' '}
+                      {Number.isFinite(soloStats.scoringStats?.firstNineAverage)
+                        ? soloStats.scoringStats.firstNineAverage.toFixed(1)
+                        : '—'}
+                    </span>
+                    <span className="game-scoreboard-best-score">
+                      Best score:{' '}
+                      {Number.isFinite(soloStats.highestScore)
+                        ? soloStats.highestScore
+                        : 0}
+                    </span>
+                  </>
+                )}
                 <span className="game-scoreboard-checkout">
                   {[301, 501].includes(game.startingPoints) && (
                     <CheckoutSuggestion
@@ -86,75 +104,78 @@ export default function GameScoreboard({ game, slots, compact = false }) {
             </span>
           </aside>
         )}
-        <details className="game-all-standings">
-          <summary>All players ({game.players.length})</summary>
-          <div
-            className="game-standings-scroll"
-            role="region"
-            aria-label="All player statistics"
-            tabIndex="0"
-          >
-            <table className="game-standings-table" aria-label="All players">
-              <thead>
-                <tr>
-                  <th scope="col">Players</th>
-                  <th scope="col">Avg</th>
-                  <th scope="col">
-                    First 9<br />
-                    avg
-                  </th>
-                  <th scope="col">
-                    Best
-                    <br />
-                    score
-                  </th>
-                  <th scope="col">Legs</th>
-                  <th scope="col">
-                    Points
-                    <br />
-                    left
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {standingsInStartingOrder(game).map((player) => {
-                  const playerStats = stats.get(player.username);
-                  const firstNine = playerStats.scoringStats?.firstNineAverage;
-                  return (
-                    <tr
-                      key={player.username}
-                      aria-current={
-                        player.username === game.turn ? 'true' : undefined
-                      }
-                    >
-                      <th scope="row" title={player.username}>
-                        {player.username}
-                        {player.username === game.turn && (
-                          <small> · Now throwing</small>
-                        )}
-                      </th>
-                      <td>{averages.get(player.username).toFixed(1)}</td>
-                      <td>
-                        {Number.isFinite(firstNine)
-                          ? firstNine.toFixed(1)
-                          : '—'}
-                      </td>
-                      <td>
-                        {Number.isFinite(playerStats.highestScore)
-                          ? playerStats.highestScore
-                          : 0}
-                      </td>
-                      <td>{player.legsWon ?? 0}</td>
-                      <td aria-label={`Remaining points: ${player.points}`}>
-                        {player.points}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </details>
+        {!solo && (
+          <details className="game-all-standings">
+            <summary>All players ({game.players.length})</summary>
+            <div
+              className="game-standings-scroll"
+              role="region"
+              aria-label="All player statistics"
+              tabIndex="0"
+            >
+              <table className="game-standings-table" aria-label="All players">
+                <thead>
+                  <tr>
+                    <th scope="col">Players</th>
+                    <th scope="col">Avg</th>
+                    <th scope="col">
+                      First 9<br />
+                      avg
+                    </th>
+                    <th scope="col">
+                      Best
+                      <br />
+                      score
+                    </th>
+                    <th scope="col">Legs</th>
+                    <th scope="col">
+                      Points
+                      <br />
+                      left
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {standingsInStartingOrder(game).map((player) => {
+                    const playerStats = stats.get(player.username);
+                    const firstNine =
+                      playerStats.scoringStats?.firstNineAverage;
+                    return (
+                      <tr
+                        key={player.username}
+                        aria-current={
+                          player.username === game.turn ? 'true' : undefined
+                        }
+                      >
+                        <th scope="row" title={player.username}>
+                          {player.username}
+                          {player.username === game.turn && (
+                            <small> · Now throwing</small>
+                          )}
+                        </th>
+                        <td>{averages.get(player.username).toFixed(1)}</td>
+                        <td>
+                          {Number.isFinite(firstNine)
+                            ? firstNine.toFixed(1)
+                            : '—'}
+                        </td>
+                        <td>
+                          {Number.isFinite(playerStats.highestScore)
+                            ? playerStats.highestScore
+                            : 0}
+                        </td>
+                        <td>{player.legsWon ?? 0}</td>
+                        <td aria-label={`Remaining points: ${player.points}`}>
+                          {player.points}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
       </div>
     </>
   );
