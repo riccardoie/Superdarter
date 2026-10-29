@@ -28,6 +28,44 @@ class FriendsIT extends AbstractIT {
     private static final String REQUESTS = FRIENDS + "/requests";
 
     @Test
+    void suggestionsRequireTextRankClosestMatchesAndReturnAtMostThreeUsernames() {
+        String alice = register("alice");
+        for (String name : List.of("bob", "bobby", "boba", "zebob", "alex")) register(name);
+        assertThat(rest().exchange(FRIENDS + "/suggestions", HttpMethod.GET,
+                authed(alice, null), String[].class).getBody()).isEmpty();
+        assertThat(rest().exchange(FRIENDS + "/suggestions?query=%20%20", HttpMethod.GET,
+                authed(alice, null), String[].class).getBody()).isEmpty();
+        assertThat(rest().exchange(FRIENDS + "/suggestions?query=BOB", HttpMethod.GET,
+                authed(alice, null), String[].class).getBody())
+                .containsExactly("bob", "boba", "bobby");
+        assertThat(rest().exchange(FRIENDS + "/suggestions?query=ze", HttpMethod.GET,
+                authed(alice, null), String[].class).getBody()).containsExactly("zebob");
+        assertThat(rest().exchange(FRIENDS + "/suggestions?query=missing", HttpMethod.GET,
+                authed(alice, null), String[].class).getBody()).isEmpty();
+        assertThat(rest().exchange(FRIENDS + "/suggestions?query=%25", HttpMethod.GET,
+                authed(alice, null), String[].class).getBody()).isEmpty();
+        assertThat(rest().getForEntity(FRIENDS + "/suggestions?query=bob", String.class)
+                .getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void suggestionsExcludeSelfFriendsAndPendingInvitationsInBothDirections() {
+        String alice = register("alice");
+        String aliceTwo = register("aliceTwo");
+        register("aliceThree");
+        register("aliceFour");
+        register("aliceFive");
+        register("aliceSix");
+        befriend("alice", "aliceThree");
+        send(aliceTwo, "alice");
+        send(alice, "aliceFour");
+        assertThat(rest().exchange(FRIENDS + "/suggestions?query=alice", HttpMethod.GET,
+                authed(alice, null), String[].class).getBody())
+                .containsExactly("aliceSix", "aliceFive");
+        assertThat(countRows("friend_requests")).isEqualTo(3);
+    }
+
+    @Test
     void gameCreationRequiresAcceptedFriendshipNotMerelyAnExistingAccountOrInvitation() {
         String alice = register("alice");
         String bob = register("bob");

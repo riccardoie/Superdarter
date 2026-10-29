@@ -77,6 +77,12 @@ export function getFriendRequests() {
   return request('/api/friends/requests');
 }
 
+export function searchFriendUsers({ query }) {
+  const text = query.trim();
+  if (!text) return Promise.resolve([]);
+  return request(`/api/friends/suggestions?query=${encodeURIComponent(text)}`);
+}
+
 export function sendFriendRequest({ username }) {
   return request('/api/friends/requests', {
     method: 'POST',

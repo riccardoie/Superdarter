@@ -8,6 +8,11 @@ export default function FriendAutocomplete({
   placeholder,
   onChange,
   onAdd,
+  inputId,
+  disabled = false,
+  invalid = false,
+  describedBy,
+  requireText = false,
 }) {
   const suggestions = matches.slice(0, 3);
   const id = useId();
@@ -16,7 +21,12 @@ export default function FriendAutocomplete({
   const activeOption = useRef(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState('');
-  const expanded = enabled && open && suggestions.length > 0;
+  const expanded =
+    enabled &&
+    !disabled &&
+    open &&
+    suggestions.length > 0 &&
+    (!requireText || Boolean(value.trim()));
   const activeIndex = suggestions.indexOf(active);
 
   useEffect(() => {
@@ -41,6 +51,8 @@ export default function FriendAutocomplete({
   function handleKeyDown(event) {
     if (
       enabled &&
+      (!requireText || value.trim()) &&
+      !disabled &&
       suggestions.length &&
       ['ArrowDown', 'ArrowUp'].includes(event.key)
     ) {
@@ -82,6 +94,7 @@ export default function FriendAutocomplete({
     >
       <input
         ref={input}
+        id={inputId}
         className="player-input"
         type="text"
         maxLength={255}
@@ -89,6 +102,9 @@ export default function FriendAutocomplete({
         autoCapitalize="none"
         spellCheck={false}
         aria-label={label}
+        disabled={disabled}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         placeholder={placeholder}
         role={enabled ? 'combobox' : undefined}
         aria-autocomplete={enabled ? 'list' : undefined}

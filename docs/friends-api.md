@@ -11,6 +11,7 @@ passwords, or email addresses. Usernames use the same case-sensitive identity as
 | --- | --- | --- |
 | GET | `/api/friends` | 200: accepted friends, sorted by username |
 | GET | `/api/friends/requests` | 200: pending `incoming` and `outgoing` invitations |
+| GET | `/api/friends/suggestions?query=bob` | 200: up to three matching usernames |
 | POST | `/api/friends/requests` | 201: send an invitation to `{"username":"bob"}` |
 | POST | `/api/friends/requests/{id}/accept` | 200: recipient accepts the invitation |
 | DELETE | `/api/friends/requests/{id}` | 204: recipient declines or sender withdraws |
@@ -21,6 +22,15 @@ An unknown username or request ID returns 404. Unauthenticated calls return 401.
 Unrelated users cannot accept or dismiss requests (403), including administrators.
 
 ## Request lifecycle
+
+The Add friend dialog searches only after text is entered (debounced by 250 ms).
+Blank queries return no suggestions. Matching is case-insensitive and literal:
+exact names rank first, then prefix matches, then substring matches. Within each
+group shorter names come first, followed by alphabetical order. This is not a
+typo-correction search. Suggestions exclude the caller, accepted friends, and
+pending invitations in either direction. The endpoint exposes usernames only;
+it does not send or accept a request. Selecting a suggestion fills the input;
+the user still presses Add to send the invitation.
 
 Sending an invitation creates a `PENDING` row, not a friendship. Only the recipient
 can accept it. Acceptance changes the status to `ACCEPTED`, records `acceptedAt`,

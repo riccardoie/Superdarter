@@ -167,6 +167,11 @@
   margin-bottom: 0;
 }
 
+.friends-dialog .friend-suggestions {
+  position: static;
+  margin-top: var(--space-1);
+}
+
 .friends-add-form {
   display: flex;
   flex-direction: column;

@@ -89,6 +89,49 @@ test('guest name entry keeps normal text input without friend suggestions', () =
   assert.doesNotMatch(html, /combobox|listbox|aria-expanded|<datalist/);
 });
 
+test('Add friend username search never fetches empty input and safely encodes typed text', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify(['bob', 'boba', 'bobby']));
+  };
+  assert.deepEqual(await api.searchFriendUsers({ query: '' }), []);
+  assert.deepEqual(await api.searchFriendUsers({ query: '   ' }), []);
+  assert.equal(calls.length, 0);
+  assert.deepEqual(await api.searchFriendUsers({ query: ' BOB ' }), [
+    'bob',
+    'boba',
+    'bobby',
+  ]);
+  assert.ok(calls[0].url.endsWith('/api/friends/suggestions?query=BOB'));
+  assert.equal(calls[0].options.method, 'GET');
+  assert.ok(calls[0].options.headers.Authorization.startsWith('Bearer '));
+  await api.searchFriendUsers({ query: 'bob&alice' });
+  assert.ok(calls[1].url.endsWith('query=bob%26alice'));
+});
+
+test('Add friend autocomplete hides suggestions with no text and retains disabled input behavior', () => {
+  const html = renderToStaticMarkup(
+    createElement(FriendAutocomplete, {
+      inputId: 'friend-username',
+      value: '',
+      suggestions: ['bob'],
+      requireText: true,
+      disabled: true,
+      label: 'Friend’s username',
+      invalid: true,
+      describedBy: 'friend-name-error',
+      onChange: () => {},
+      onAdd: () => {},
+    })
+  );
+  assert.match(html, /id="friend-username"/);
+  assert.match(html, /disabled=""/);
+  assert.match(html, /aria-describedby="friend-name-error"/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.doesNotMatch(html, /role="listbox"/);
+});
+
 test('Friends page loads server data and Add friend opens a dialog instead of an inline form', () => {
   const html = renderToStaticMarkup(createElement(FriendsPage));
   assert.match(html, /<h1>Friends<\/h1>/);

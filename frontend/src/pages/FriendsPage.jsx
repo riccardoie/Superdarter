@@ -6,9 +6,11 @@ import {
   getFriendRequests,
   getUsername,
   sendFriendRequest,
+  searchFriendUsers,
 } from '../api';
 import { friendNameError, loadFriends } from '../friends';
 import FriendsLists from '../components/FriendsLists';
+import FriendAutocomplete from '../components/FriendAutocomplete';
 
 export default function FriendsPage() {
   const [overview, setOverview] = useState(null);
@@ -20,11 +22,32 @@ export default function FriendsPage() {
   const [adding, setAdding] = useState(false);
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  const [search, setSearch] = useState({ query: '', names: [], error: '' });
   const dialog = useRef(null);
   const working = useRef(false);
   const version = useRef(0);
   const mounted = useRef(false);
   const owner = getUsername(localStorage.getItem('token'));
+  const query = username.trim();
+  const searchMatches = query && search.query === query ? search.names : [];
+
+  useEffect(() => {
+    if (!adding || !query || busy) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      searchFriendUsers({ query })
+        .then((names) => {
+          if (!cancelled) setSearch({ query, names, error: '' });
+        })
+        .catch((err) => {
+          if (!cancelled) setSearch({ query, names: [], error: err.message });
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [adding, query, busy]);
 
   useEffect(() => {
     mounted.current = true;
@@ -76,6 +99,7 @@ export default function FriendsPage() {
     if (working.current) return;
     setAdding(false);
     setUsername('');
+    setSearch({ query: '', names: [], error: '' });
     setError('');
   }
 
@@ -101,7 +125,7 @@ export default function FriendsPage() {
   }
 
   function addFriend(event) {
-    event.preventDefault();
+    event?.preventDefault();
     if (working.current || !overview) return;
     const name = username.trim();
     const message = friendNameError(
@@ -125,6 +149,7 @@ export default function FriendsPage() {
         }));
         setAdding(false);
         setUsername('');
+        setSearch({ query: '', names: [], error: '' });
         setNotice(`Friend request sent to ${request.recipient}.`);
       },
       setError
@@ -241,24 +266,29 @@ export default function FriendsPage() {
           <form className="friends-add-form" onSubmit={addFriend}>
             <label htmlFor="friend-username">Friend’s username</label>
             <div className="friends-add-row">
-              <input
-                id="friend-username"
-                className="player-input"
-                type="text"
+              <FriendAutocomplete
+                inputId="friend-username"
+                label="Friend’s username"
+                placeholder="Search for a username"
                 value={username}
+                suggestions={searchMatches}
+                requireText
                 disabled={Boolean(busy)}
-                maxLength={255}
-                autoComplete="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                onChange={(event) => {
-                  setUsername(event.target.value);
+                onChange={(value) => {
+                  setUsername(value);
+                  setSearch({ query: '', names: [], error: '' });
                   setError('');
                 }}
-                aria-invalid={Boolean(error)}
-                aria-describedby={error ? 'friend-name-error' : undefined}
+                onAdd={addFriend}
+                invalid={Boolean(error)}
+                describedBy={error ? 'friend-name-error' : undefined}
               />
             </div>
+            {query && search.query === query && search.error && (
+              <p className="error-message" role="alert">
+                Unable to load suggestions: {search.error}
+              </p>
+            )}
             {error && (
               <p id="friend-name-error" className="error-message" role="alert">
                 {error}

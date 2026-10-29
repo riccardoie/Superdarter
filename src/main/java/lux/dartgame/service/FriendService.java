@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import lux.dartgame.constants.Constants;
 import lux.dartgame.dto.FriendInvitationsResponse;
 import lux.dartgame.dto.FriendRequestResponse;
 import lux.dartgame.dto.FriendResponse;
@@ -38,6 +39,18 @@ public class FriendService {
                                 ? request.getRecipient().getUserName()
                                 : request.getSender().getUserName(), request.getAcceptedAt()))
                 .sorted(Comparator.comparing(FriendResponse::username)).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> suggestions(final String actor, final String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        String text = query.strip();
+        if (text.length() > Constants.MAX_PLAYER_NAME_LENGTH) {
+            throw new IllegalArgumentException("Search text is too long");
+        }
+        return users.suggestFriends(actor, text, Constants.MAX_FRIEND_SUGGESTIONS);
     }
 
     @Transactional(readOnly = true)
