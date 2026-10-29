@@ -829,6 +829,10 @@
   justify-content: flex-start;
 }
 
+.game-page-in-progress > .game-turn-overview {
+  margin-top: var(--space-5);
+}
+
 .game-page-in-progress .game-scoreboard {
   width: min(760px, 100%);
 }
