@@ -945,6 +945,89 @@
   margin: var(--space-3) auto 0;
 }
 
+.game-text-controls {
+  display: contents;
+}
+
+/* Dartboard mode keeps scoring controls in reach without reducing the board. */
+.game-page-board-focus .game-round-panel {
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.game-turn-overview.game-turn-overview-compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'current standings';
+  align-items: start;
+}
+
+.game-turn-overview-compact .game-next-player,
+.game-turn-overview-compact .game-scoreboard-average,
+.game-turn-overview-compact .game-scoreboard-turns,
+.game-turn-overview-compact .game-scoreboard-leg-wins {
+  display: none;
+}
+
+.game-turn-overview.game-turn-overview-compact .game-scoreboard-row {
+  grid-template-areas: 'name points' 'checkout checkout';
+  gap: var(--space-1) var(--space-2);
+}
+
+.game-turn-overview.game-turn-overview-compact .game-scoreboard-checkout {
+  text-align: left;
+}
+
+.game-turn-overview-compact .game-scoreboard-checkout:empty {
+  display: none;
+}
+
+.game-turn-overview-compact .game-all-standings summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.game-board-controls {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: 0 -4px 16px var(--color-shadow);
+}
+
+.game-board-controls .game-board-slots {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.game-board-controls .game-board-slots button {
+  min-height: 44px;
+  padding: var(--space-1);
+  font-size: 0.9rem;
+}
+
+.game-board-controls .game-round-total {
+  align-self: center;
+  font-size: 0.9rem;
+}
+
+.game-board-controls .game-round-actions {
+  gap: var(--space-2);
+}
+
+.game-board-controls .game-round-actions > button {
+  padding: var(--space-2);
+  font-size: 0.85rem;
+}
+
 .game-turn-banner {
   width: 100%;
   text-align: center;
@@ -967,6 +1050,164 @@
 
 .game-scoreboard-stats {
   display: contents;
+}
+
+.game-turn-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(80px, 0.4fr);
+  grid-template-areas: 'current next' 'current standings';
+  gap: var(--space-2);
+  width: min(560px, 100%);
+  margin-inline: auto;
+}
+
+.game-current-player,
+.game-next-player {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.game-current-player {
+  grid-area: current;
+}
+
+.game-next-player {
+  grid-area: next;
+}
+
+.game-turn-solo {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'current' 'standings';
+}
+
+.game-current-player {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.game-current-player h2 {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) 0;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.game-turn-overview .game-scoreboard-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'name points' 'average turns' 'legs checkout';
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  font-size: 0.9rem;
+}
+
+.game-turn-overview .game-scoreboard-name {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.game-turn-overview .game-scoreboard-average,
+.game-turn-overview .game-scoreboard-leg-wins,
+.game-turn-overview .game-scoreboard-turns,
+.game-turn-overview .game-scoreboard-checkout .game-checkout-suggestion {
+  font-size: 0.85rem;
+}
+
+.game-turn-overview .game-scoreboard-checkout {
+  min-height: 0;
+  display: block;
+  text-align: right;
+}
+
+.game-turn-overview .game-scoreboard-average {
+  justify-self: start;
+}
+
+.game-next-player {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-surface);
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.game-next-player strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-all-standings {
+  grid-area: standings;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  font-size: 0.85rem;
+}
+
+.game-all-standings[open] {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.game-turn-overview:has(.game-all-standings[open]) .game-current-player {
+  grid-row: 1;
+}
+
+.game-all-standings summary {
+  padding: var(--space-2);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  list-style: none;
+}
+
+.game-all-standings summary::-webkit-details-marker {
+  display: none;
+}
+
+.game-standings-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  padding-inline: var(--space-2);
+}
+
+.game-standings-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+}
+
+.game-standings-table th,
+.game-standings-table td {
+  padding: var(--space-2) 2px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: right;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.game-standings-table thead th {
+  vertical-align: bottom;
+  line-height: 1.2;
+}
+
+.game-standings-table th:first-child {
+  text-align: left;
+  width: 25%;
+  overflow-wrap: anywhere;
+}
+
+.game-standings-table tr[aria-current='true'] {
+  background: var(--color-surface);
+  font-weight: 600;
 }
 
 .game-scoreboard-name,
@@ -1018,22 +1259,39 @@
 
 .game-dart-slots {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
-  width: 100%;
-}
-
-.game-dart-slot {
-  display: flex;
-  flex-direction: column;
   gap: var(--space-2);
+  width: 100%;
+  max-width: 540px;
   padding: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
 }
 
-.game-dart-slot label {
+.game-dart-slot {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.game-dart-slot + .game-dart-slot {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.game-dart-slot > .btn {
+  min-height: 44px;
+  padding: var(--space-2);
+}
+
+.game-dart-slot > .error-message {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.game-dart-slot label,
+.game-multiplier-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -1041,7 +1299,42 @@
   color: var(--color-text-muted);
 }
 
+.game-multiplier-options {
+  display: flex;
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.game-multiplier-options button {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1);
+  border: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.game-multiplier-options button + button {
+  border-left: 1px solid var(--color-border);
+}
+
+.game-multiplier-options button[aria-pressed='true'] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.game-multiplier-options button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.game-dart-slot input,
 .game-dart-slot select {
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius);
@@ -1050,6 +1343,7 @@
   color: var(--color-text);
 }
 
+.game-dart-slot input:disabled,
 .game-dart-slot select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -1572,8 +1866,7 @@
   }
 
   .player-picker-row,
-  .gamemode-picker-row,
-  .game-dart-slots {
+  .gamemode-picker-row {
     grid-template-columns: 1fr;
     flex-direction: column;
   }
