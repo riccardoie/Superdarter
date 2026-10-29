@@ -94,13 +94,13 @@ export function dismissFriendRequest({ requestId }) {
   return request(`/api/friends/requests/${requestId}`, { method: 'DELETE' });
 }
 
-// Fetch cumulative stats for the signed-in player identified by the JWT subject.
-export function getPlayerStats() {
+// Default to the signed-in player; profile links can request another account's stats.
+export function getPlayerStats({ username } = {}) {
   const token = localStorage.getItem('token');
-  const username = getUsername(token);
+  const player = username ?? getUsername(token);
   return request('/api/playerStats', {
     method: 'POST',
-    body: [{ username }],
+    body: [{ username: player }],
   });
 }
 

@@ -55,11 +55,17 @@ export default function FriendsLists({
         ) : (
           <ul className="friends-list" aria-label="Friends">
             {friends.map((friend) => (
-              <li key={friend.username} className="card">
-                <span className="friend-avatar" aria-hidden="true">
-                  {friend.username[0].toUpperCase()}
-                </span>
-                <span className="friend-name">{friend.username}</span>
+              <li key={friend.username} className="card friend-profile-row">
+                <Link
+                  className="friend-profile-link"
+                  to={`/profile/${encodeURIComponent(friend.username)}`}
+                  aria-label={`View ${friend.username}’s profile`}
+                >
+                  <span className="friend-avatar" aria-hidden="true">
+                    {friend.username[0].toUpperCase()}
+                  </span>
+                  <span className="friend-name">{friend.username}</span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -92,3 +98,4 @@ export default function FriendsLists({
     </div>
   );
 }
+import { Link } from 'react-router-dom';

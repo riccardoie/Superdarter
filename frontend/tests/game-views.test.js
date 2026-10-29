@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { createServer } from 'vite';
 
 let server;
@@ -10,6 +10,7 @@ let GamesPage;
 let SidebarMenu;
 let FriendsPage;
 let FriendsLists;
+let ProfilePage;
 let api;
 const originalLocalStorage = globalThis.localStorage;
 const originalFetch = globalThis.fetch;
@@ -31,6 +32,9 @@ before(async () => {
     '/src/components/FriendsLists.jsx'
   ));
   api = await server.ssrLoadModule('/src/api.js');
+  ({ default: ProfilePage } = await server.ssrLoadModule(
+    '/src/pages/ProfilePage.jsx'
+  ));
 });
 
 after(async () => {
@@ -55,14 +59,18 @@ test('Friends page loads server data and Add friend opens a dialog instead of an
 
 test('friend lists display accepted friends and the correct invitation actions', () => {
   const html = renderToStaticMarkup(
-    createElement(FriendsLists, {
-      friends: [{ username: 'bob' }],
-      incoming: [{ requestId: 1, sender: 'carol', recipient: 'alice' }],
-      outgoing: [{ requestId: 2, sender: 'alice', recipient: 'dave' }],
-      busy: '',
-      onAccept: () => {},
-      onDismiss: () => {},
-    })
+    createElement(
+      MemoryRouter,
+      null,
+      createElement(FriendsLists, {
+        friends: [{ username: 'bob' }],
+        incoming: [{ requestId: 1, sender: 'carol', recipient: 'alice' }],
+        outgoing: [{ requestId: 2, sender: 'alice', recipient: 'dave' }],
+        busy: '',
+        onAccept: () => {},
+        onDismiss: () => {},
+      })
+    )
   );
   assert.match(html, /Your friends \(1\)/);
   assert.match(html, /Accept friend request from carol/);
@@ -73,7 +81,78 @@ test('friend lists display accepted friends and the correct invitation actions',
     html.indexOf('id="outgoing-friends-title"')
   );
   assert.match(accepted, /bob/);
+  assert.match(accepted, /href="\/profile\/bob"/);
   assert.doesNotMatch(accepted, /carol|dave/);
+});
+
+test('friend profile links safely encode usernames', () => {
+  const html = renderToStaticMarkup(
+    createElement(
+      MemoryRouter,
+      null,
+      createElement(FriendsLists, {
+        friends: [{ username: 'bob smith' }],
+        incoming: [],
+        outgoing: [],
+        busy: '',
+        onAccept: () => {},
+        onDismiss: () => {},
+      })
+    )
+  );
+  assert.match(html, /href="\/profile\/bob%20smith"/);
+  assert.match(html, /View bob smith’s profile/);
+});
+
+test('friend profiles provide navigation back to Friends without changing own-profile navigation', () => {
+  const render = (path) =>
+    renderToStaticMarkup(
+      createElement(
+        MemoryRouter,
+        { initialEntries: [path] },
+        createElement(
+          Routes,
+          null,
+          createElement(Route, {
+            path: '/profile/:username',
+            element: createElement(ProfilePage),
+          }),
+          createElement(Route, {
+            path: '/profile',
+            element: createElement(ProfilePage),
+          })
+        )
+      )
+    );
+  assert.match(render('/profile/bob'), /href="\/friends"/);
+  assert.match(render('/profile/bob'), /Loading profile/);
+  assert.doesNotMatch(render('/profile'), /Back to Friends/);
+});
+
+test('profile stats API requests the selected friend while defaulting to the current user', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, ...options });
+    return new Response(
+      JSON.stringify([{ username: JSON.parse(options.body)[0].username }])
+    );
+  };
+  assert.deepEqual(await api.getPlayerStats({ username: 'bob' }), [
+    { username: 'bob' },
+  ]);
+  assert.deepEqual(await api.getPlayerStats(), [{ username: 'alice' }]);
+  assert.deepEqual(
+    calls.map((call) => JSON.parse(call.body)),
+    [[{ username: 'bob' }], [{ username: 'alice' }]]
+  );
+  assert.ok(
+    calls.every(
+      (call) => call.method === 'POST' && call.url.endsWith('/api/playerStats')
+    )
+  );
+  assert.ok(
+    calls.every((call) => call.headers.Authorization.startsWith('Bearer '))
+  );
 });
 
 test('friend lists prevent repeated invitation actions while a request is in flight', () => {

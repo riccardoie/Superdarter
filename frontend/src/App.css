@@ -239,6 +239,50 @@
   overflow-wrap: anywhere;
 }
 
+.friends-list .friend-profile-row {
+  padding: 0;
+}
+
+.friend-profile-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3);
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+
+.friend-profile-link:hover {
+  background: var(--color-primary-subtle);
+}
+
+.friend-profile-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.profile-header h1 {
+  margin: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.profile-back-link,
+.profile-back-link:hover {
+  text-decoration: none;
+}
+
 .friend-request-actions {
   display: flex;
   flex-wrap: wrap;

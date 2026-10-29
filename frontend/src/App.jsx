@@ -33,6 +33,7 @@ export default function App() {
               />
               <Route path="/games/new" element={<GameSetupPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/profile/:username" element={<ProfilePage />} />
               <Route path="/friends" element={<FriendsPage />} />
               <Route path="/games/:gameId" element={<GamePage />} />
             </Route>
