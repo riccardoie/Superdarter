@@ -16,7 +16,10 @@ export function isSingleOut(gametype) {
   return gametype === '301 Single Out' || gametype === '501 Single Out';
 }
 
-export function playerNameError(name, { owner, players, guests, maxPlayers }) {
+export function playerNameError(
+  name,
+  { owner, players, guests, maxPlayers, friends }
+) {
   if (!name) return 'Enter a player name';
   if (name.length > 255) return 'Player names must be at most 255 characters';
   if (name === owner) return 'That is you — you are already in the game';
@@ -25,7 +28,28 @@ export function playerNameError(name, { owner, players, guests, maxPlayers }) {
   if (players.length + guests.length + 1 >= maxPlayers) {
     return `Max ${maxPlayers} players in total (including you and guests)`;
   }
+  if (friends && !friends.some((friend) => friend.username === name)) {
+    return 'Only accepted friends can be added as registered players.';
+  }
   return '';
+}
+
+export function gameFriendSuggestions(
+  friends,
+  input,
+  { owner, players, guests, maxPlayers }
+) {
+  if (players.length + guests.length + 1 >= maxPlayers) return [];
+  const selected = new Set([owner, ...players, ...guests]);
+  const query = input.trim().toLowerCase();
+  return friends
+    .filter(
+      (friend) =>
+        !selected.has(friend.username) &&
+        friend.username.toLowerCase().includes(query)
+    )
+    .map((friend) => friend.username)
+    .sort((a, b) => a.localeCompare(b));
 }
 
 // Creation is deferred until Start. If starting fails, remove the pending game.

@@ -17,6 +17,9 @@ export default function SidebarMenu({ isOpen, onClose }) {
         <NavLink to="/profile" className="sidebar-link" onClick={onClose}>
           Profile
         </NavLink>
+        <NavLink to="/friends" className="sidebar-link" onClick={onClose}>
+          Friends
+        </NavLink>
       </nav>
     </aside>
   );

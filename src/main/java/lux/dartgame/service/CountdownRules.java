@@ -3,6 +3,9 @@ package lux.dartgame.service;
 import lux.dartgame.constants.Constants;
 import lux.dartgame.exception.GameModeNotFoundException;
 import lux.dartgame.exception.InvalidScoreException;
+import java.util.HashMap;
+import java.util.Map;
+import lux.dartgame.model.BoardHitCounts;
 
 /** Stateless countdown rules, independent of match persistence and progression. */
 public final class CountdownRules {
@@ -19,7 +22,8 @@ public final class CountdownRules {
 
     public record Result(int remaining, int scored, int triples, int bullseyes,
                          boolean won, boolean bust, int dartsThrown,
-                         int firstNinePoints, int firstNineDarts) {
+                         int firstNinePoints, int firstNineDarts,
+                         Map<Integer, BoardHitCounts> boardHits) {
     }
 
     public static Result evaluate(final int startingPoints, final String score) {
@@ -41,9 +45,14 @@ public final class CountdownRules {
         boolean bust = false;
         int thrown = 0;
         int firstPoints = 0;
+        Map<Integer, BoardHitCounts> boardHits = new HashMap<>();
         for (int i = 0; i < darts.length; i += 2) {
             int number = darts[i];
             int multiplier = darts[i + 1];
+            if (number > 0) {
+                boardHits.computeIfAbsent(number, ignored -> new BoardHitCounts())
+                        .record(multiplier);
+            }
             thrown++;
             if (thrown <= firstNineDartsLeft) {
                 firstPoints += number * multiplier;
@@ -72,7 +81,8 @@ public final class CountdownRules {
         }
         return new Result(bust ? startingPoints : remaining,
                 bust ? 0 : startingPoints - remaining, triples, bullseyes, won, bust,
-                thrown, bust ? 0 : firstPoints, Math.min(thrown, firstNineDartsLeft));
+                thrown, bust ? 0 : firstPoints, Math.min(thrown, firstNineDartsLeft),
+                Map.copyOf(boardHits));
     }
 
     private static int[] parse(final String score) {

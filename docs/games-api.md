@@ -32,7 +32,11 @@ An administrator can inspect another user's game by ID.
 The authenticated owner is automatically added once and starts first. Other
 players retain request order. Duplicate names are deduplicated. There may be at
 most **10 distinct participants including the owner**. Omit `players` or pass `[]`
-for solo play. All usernames must already exist. The roster cannot be edited.
+for solo play. All usernames must already exist, and every registered opponent
+must be an accepted friend of the creator. Pending invitations and friends of
+other participants do not qualify (400). The frontend suggests matching accepted
+friends as you type and excludes players already selected. Guest players remain
+available separately and do not need accounts or friendships. The roster cannot be edited.
 Playable modes are `301`, `501`, `301 Single Out`, and `501 Single Out`;
 unknown/unsupported modes return 404. The original `301` and `501` require a
 double to finish. Single Out modes allow any valid dart to reach exactly zero.
@@ -48,6 +52,8 @@ once the original is `COMPLETED` or `ABANDONED`. The endpoint returns 201 with a
 new, already-started game. It preserves the exact gametype (including finishing
 rule), leg target, registered players, guests, and original first-leg order.
 The caller owns the new game, but the starting player does not change.
+All other registered participants must also be accepted friends of the caller;
+otherwise the rematch is rejected with 400, without creating a new game.
 Scores and counters start fresh; the original game and profile totals are unchanged.
 Pending or active source games return 409; nonparticipants return 403.
 `permissions.canRematch` indicates whether the caller can use this action.

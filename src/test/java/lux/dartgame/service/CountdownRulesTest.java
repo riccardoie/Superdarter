@@ -1,6 +1,8 @@
 package lux.dartgame.service;
 
 import lux.dartgame.exception.InvalidScoreException;
+import java.util.Map;
+import lux.dartgame.model.BoardHitCounts;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -10,6 +12,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CountdownRulesTest {
+    @Test
+    void boardHitsCountDartsNotPointsAndExcludeMisses() {
+        for (int number = 1; number <= 20; number++) {
+            for (int multiplier = 1; multiplier <= 3; multiplier++) {
+                assertThat(CountdownRules.evaluate(501, number + " " + multiplier).boardHits())
+                        .isEqualTo(Map.of(number, new BoardHitCounts(multiplier == 1 ? 1 : 0,
+                                multiplier == 2 ? 1 : 0, multiplier == 3 ? 1 : 0)));
+            }
+        }
+        assertThat(CountdownRules.evaluate(501, "20 1 20 2 20 3").boardHits())
+                .isEqualTo(Map.of(20, new BoardHitCounts(1, 1, 1)));
+        assertThat(CountdownRules.evaluate(501, "25 1 25 2 0 1").boardHits())
+                .isEqualTo(Map.of(25, new BoardHitCounts(1, 1, 0)));
+        assertThat(CountdownRules.evaluate(501, "").boardHits()).isEmpty();
+        assertThat(CountdownRules.evaluate(501, "0 1 0 1 0 1").boardHits()).isEmpty();
+    }
+
+    @Test
+    void boardHitsIncludeTheBustingDartButIgnoreDartsAfterBustOrCheckout() {
+        assertThat(CountdownRules.evaluate(40, "20 1 20 3 25 2").boardHits())
+                .isEqualTo(Map.of(20, new BoardHitCounts(1, 0, 1)));
+        assertThat(CountdownRules.evaluate(40, "20 2 25 2 19 3").boardHits())
+                .isEqualTo(Map.of(20, new BoardHitCounts(0, 1, 0)));
+        assertThat(CountdownRules.evaluate(20, "20 1 25 2", 9, false).boardHits())
+                .isEqualTo(Map.of(20, new BoardHitCounts(1, 0, 0)));
+    }
+
     @ParameterizedTest
     @CsvSource({
         "40, '20 2', 0, true, false, 0, 0",
