@@ -13,9 +13,7 @@ import { canSubmitRound, dartInputError, serializeRound } from '../dartRound';
 import GameStatsTable from '../components/GameStatsTable';
 import GameScoreboard from '../components/GameScoreboard';
 import ConfirmDialog from '../components/ConfirmDialog';
-import MatchProgress from '../components/MatchProgress';
 import CompletedLegs from '../components/CompletedLegs';
-import { matchFormatLabel } from '../matchFormat';
 import { matchStats } from '../gameStats';
 import { isMatchWinningRound } from '../gameCompletion';
 import { isSingleOut } from '../gameSetup';
@@ -246,10 +244,6 @@ export default function GamePage() {
         <Link className="btn game-back-link" to="/games">
           &larr; Back to Games
         </Link>
-        <span className="game-format-label">
-          {game.startingPoints} · {matchFormatLabel(game.legsToWin)} ·{' '}
-          {isSingleOut(game.gametype) ? 'Single-out' : 'Double-out'}
-        </span>
         {(game.permissions.canDelete || game.permissions.canAbandon) && (
           <button
             className="btn game-manage-button"
@@ -277,7 +271,6 @@ export default function GamePage() {
           {legNotice}
         </p>
       )}
-      <MatchProgress game={game} />
 
       {!finished && <GameScoreboard game={game} slots={slots} />}
 
