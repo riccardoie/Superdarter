@@ -11,12 +11,14 @@ class LegScoringStatisticsTest {
     @ParameterizedTest
     @CsvSource({
         "40, '20 2 20 3', 1", // Ignore darts after checkout.
-        "40, '20 1 20 3 20 3', 2", // Ignore darts after bust.
+        "40, '20 1 20 3 20 3', 3", // A bust still consumes a full turn.
         "501, '', 3",
-        "501, '20 3', 1",
-        "501, '0 1 20 3', 2"
+        "501, '20 3', 3",
+        "501, '0 1 20 3', 3",
+        "40, '0 1 20 2', 2",
+        "40, '0 1 0 1 20 2', 3"
     })
-    void countsOnlyThrownDarts(final int points, final String score, final int darts) {
+    void countsFullTurnsExceptForSuccessfulCheckouts(final int points, final String score, final int darts) {
         assertThat(CountdownRules.evaluate(points, score).dartsThrown()).isEqualTo(darts);
     }
 
@@ -52,11 +54,28 @@ class LegScoringStatisticsTest {
         var stat = new LegPlayerStat();
         LegScoringStatistics.record(stat, CountdownRules.evaluate(60, "20 3 20 3 20 3"));
         assertThat(stat.getScore180()).isZero();
-        assertThat(stat.getDartsThrown()).isEqualTo(1);
+        assertThat(stat.getDartsThrown()).isEqualTo(3);
         assertThat(stat.getFirstNinePoints()).isZero();
         stat.setScoringStatsAvailable(false);
         LegScoringStatistics.record(stat, CountdownRules.evaluate(501, "20 3"));
-        assertThat(stat.getDartsThrown()).isEqualTo(1);
+        assertThat(stat.getDartsThrown()).isEqualTo(3);
         assertThat(stat.isScoringStatsAvailable()).isFalse();
+    }
+
+    @Test
+    void omittedMissesContributeToFirstNineAverage() {
+        var stat = new LegPlayerStat();
+        for (int round = 0; round < 3; round++) {
+            LegScoringStatistics.record(stat,
+                    CountdownRules.evaluate(501, "20 3", 9 - stat.getFirstNineDarts()));
+        }
+        assertThat(stat.getDartsThrown()).isEqualTo(9);
+        assertThat(stat.getFirstNineDarts()).isEqualTo(9);
+        assertThat(stat.getFirstNinePoints()).isEqualTo(180);
+        assertThat(stat.getFirstNinePoints() * 3f / stat.getFirstNineDarts()).isEqualTo(60f);
+        LegScoringStatistics.record(stat, CountdownRules.evaluate(501, "20 3", 0));
+        assertThat(stat.getDartsThrown()).isEqualTo(12);
+        assertThat(stat.getFirstNinePoints()).isEqualTo(180);
+        assertThat(stat.getFirstNineDarts()).isEqualTo(9);
     }
 }

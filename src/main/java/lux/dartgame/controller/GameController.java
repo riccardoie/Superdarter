@@ -51,6 +51,12 @@ public class GameController {
         return matches.start(id, principal.getName());
     }
 
+    @PostMapping("{id}/rematch")
+    @ResponseStatus(HttpStatus.CREATED)
+    public MatchResponse rematch(final @PathVariable long id, final Principal principal) {
+        return matches.rematch(id, principal.getName());
+    }
+
     @PostMapping("{id}/rounds")
     public MatchResponse play(final @PathVariable long id,
                               final @RequestBody @Valid PlayedRoundRequest request,

@@ -83,6 +83,10 @@ export function startGame({ gameId }) {
   return request(`/api/games/${gameId}/start`, { method: 'POST' });
 }
 
+export function rematchGame({ gameId }) {
+  return request(`/api/games/${gameId}/rematch`, { method: 'POST' });
+}
+
 export function createGame({
   gametype,
   players = [],

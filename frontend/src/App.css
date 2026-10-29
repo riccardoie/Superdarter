@@ -829,6 +829,10 @@
   justify-content: flex-start;
 }
 
+.game-page-in-progress > .game-turn-overview {
+  margin-top: var(--space-5);
+}
+
 .game-page-in-progress .game-scoreboard {
   width: min(760px, 100%);
 }
@@ -1079,7 +1083,21 @@
 
 .game-turn-solo {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'current' 'standings';
+  grid-template-areas: 'current';
+}
+
+.game-turn-overview.game-turn-solo .game-scoreboard-row {
+  grid-template-areas: 'name points' 'average turns' 'first-nine best-score' 'legs checkout';
+}
+
+.game-scoreboard-first-nine {
+  grid-area: first-nine;
+  font-size: 0.85rem;
+}
+
+.game-scoreboard-best-score {
+  grid-area: best-score;
+  font-size: 0.85rem;
 }
 
 .game-current-player {

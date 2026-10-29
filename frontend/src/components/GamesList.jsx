@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getGames } from '../api';
 import GameCard from './GameCard';
-import { sortGames } from '../gameOrder';
+import { gamesForView } from '../gameOrder';
 
-export default function GamesList({ gamemode }) {
+export default function GamesList({ gamemode, completed = false }) {
   const [games, setGames] = useState(null);
   const [error, setError] = useState('');
 
@@ -26,16 +26,18 @@ export default function GamesList({ gamemode }) {
   if (error)
     return <p className="error-message">Failed to load games: {error}</p>;
   if (games === null) return <p className="state-message">Loading games...</p>;
-  if (games.length === 0) {
+  const visibleGames = gamesForView(games, completed);
+  if (visibleGames.length === 0) {
     return (
       <p className="state-message">
-        {gamemode ? `No ${gamemode} games yet` : 'No games yet'}
+        No {gamemode ? `${gamemode} ` : ''}
+        {completed ? 'completed' : 'active'} games yet
       </p>
     );
   }
   return (
     <div className="games-list">
-      {sortGames(games).map((game) => (
+      {visibleGames.map((game) => (
         <GameCard key={game.gameId} game={game} />
       ))}
     </div>

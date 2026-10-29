@@ -69,15 +69,15 @@ export function findCheckout(points, dartsLeft = MAX_DARTS, doubleOut = true) {
   return null;
 }
 
-// Preview only consecutive entered darts, never treat unused slots as misses.
+// Interior blanks are misses. Trailing blanks remain available while entering a turn.
 export function previewCheckout(points, slots, doubleOut = true) {
   if (!Number.isInteger(points) || points < (doubleOut ? 2 : 1)) return null;
   let remaining = points;
   let thrown = 0;
-  for (const slot of slots) {
-    if (slot.value === '') break;
+  const lastEntered = slots.findLastIndex((slot) => slot.value !== '');
+  for (const slot of slots.slice(0, lastEntered + 1)) {
     const number = Number(slot.value);
-    const multiplier = Number(slot.multiplier);
+    const multiplier = slot.value === '' ? 1 : Number(slot.multiplier);
     remaining -= number * multiplier;
     thrown++;
     if (

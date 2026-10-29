@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   abandonGame,
   deleteGame,
   getGameState,
   playRound,
+  rematchGame,
   startGame,
   undoRound,
 } from '../api';
@@ -16,7 +17,6 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import CompletedLegs from '../components/CompletedLegs';
 import { matchStats } from '../gameStats';
 import { isMatchWinningRound } from '../gameCompletion';
-import { isSingleOut } from '../gameSetup';
 
 function emptySlots() {
   return [
@@ -39,6 +39,7 @@ export default function GamePage() {
   const [managementAction, setManagementAction] = useState(null);
   const [legNotice, setLegNotice] = useState('');
   const [confirmFinish, setConfirmFinish] = useState(false);
+  const rematchBusy = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -215,6 +216,23 @@ export default function GamePage() {
     }
   }
 
+  async function handleRematch() {
+    if (rematchBusy.current || submitting || !game.permissions.canRematch)
+      return;
+    rematchBusy.current = true;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      const fresh = await rematchGame({ gameId });
+      navigate(`/games/${fresh.gameId}`);
+    } catch (err) {
+      setActionError(`Failed to start rematch: ${err.message}`);
+    } finally {
+      rematchBusy.current = false;
+      setSubmitting(false);
+    }
+  }
+
   async function handleManagement() {
     setSubmitting(true);
     setActionError('');
@@ -246,8 +264,11 @@ export default function GamePage() {
       }${boardFocus ? ' game-page-board-focus' : ''}`}
     >
       <div className="game-page-header">
-        <Link className="btn game-back-link" to="/games">
-          &larr; Back to Games
+        <Link
+          className="btn game-back-link"
+          to={finished ? '/completed-games' : '/games'}
+        >
+          &larr; {finished ? 'Back to Completed games' : 'Back to Games'}
         </Link>
         {(game.permissions.canDelete || game.permissions.canAbandon) && (
           <button
@@ -472,16 +493,6 @@ export default function GamePage() {
               </button>
             </div>
           </div>
-          {!boardFocus && (
-            <p className="game-shared-hint">
-              Playing on one device — each player enters their throws when it's
-              their turn. Enter 1–3 darts in order; leave unused darts blank.
-              {isSingleOut(game.gametype)
-                ? 'Reach exactly zero with any dart.'
-                : 'Finish on a double.'}{' '}
-              Register an empty round if all darts missed.
-            </p>
-          )}
         </div>
       ) : (
         <p className="state-message">
@@ -489,6 +500,18 @@ export default function GamePage() {
         </p>
       )}
       <CompletedLegs game={game} />
+      {finished && game.permissions.canRematch && (
+        <div className="game-round-panel">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleRematch}
+            disabled={submitting}
+          >
+            {submitting ? 'Starting rematch…' : 'Rematch'}
+          </button>
+        </div>
+      )}
       {confirmFinish && (
         <ConfirmDialog
           title="Was the game completed?"

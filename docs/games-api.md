@@ -14,6 +14,7 @@ An administrator can inspect another user's game by ID.
 | GET | `/api/games?gametype=501` | List participating games (filter optional) |
 | GET | `/api/games/{id}` | Full reloadable state |
 | POST | `/api/games/{id}/start` | Start, or resume an already-started game |
+| POST | `/api/games/{id}/rematch` | Start a new match using a finished game's settings |
 | POST | `/api/games/{id}/rounds` | Score the next player's round |
 | POST | `/api/games/{id}/abandon` | End an in-progress game without a winner |
 | DELETE | `/api/games/{id}` | Delete a pending game |
@@ -40,9 +41,20 @@ Omitting `legsToWin` (or passing null) defaults to 1 for backward compatibility.
 Zero, negative, and targets above 99 return 400. The target is fixed for the match.
 Creation returns 201 and complete state. It does not begin play automatically.
 
+## Rematch
+
+Any registered participant can POST to `/api/games/{id}/rematch` without a body
+once the original is `COMPLETED` or `ABANDONED`. The endpoint returns 201 with a
+new, already-started game. It preserves the exact gametype (including finishing
+rule), leg target, registered players, guests, and original first-leg order.
+The caller owns the new game, but the starting player does not change.
+Scores and counters start fresh; the original game and profile totals are unchanged.
+Pending or active source games return 409; nonparticipants return 403.
+`permissions.canRematch` indicates whether the caller can use this action.
+
 ## State
 
-The same response shape is returned by create, get, start, round, and abandon:
+The same response shape is returned by create, get, start, round, abandon, and rematch:
 
 ```json
 {
