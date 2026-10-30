@@ -14,7 +14,8 @@ their sum is the total number of hits on that number in the round.
   A single 20, double 20, and triple 20 in one round produce three hits on 20,
   not 120 hits. Both outer bull and bullseye count as hits on 25.
 - Explicit misses (`0 1`), blank rounds, and omitted darts add no hits.
-- Hits up to and including a bust count, even though the round scores zero.
+- Busted turns contribute no board hits, including any hits before the busting
+  dart, because the entire turn's score is discarded.
 - Darts entered after the busting or winning dart are ignored, just as they are
   for scoring. The same rules apply to single-out and double-out games.
 - Invalid, unauthorized, or stale round submissions cannot change the counters.
@@ -56,5 +57,18 @@ stored independently, so multiplier counters and totals cannot drift apart.
 The totals are available immediately during play and apply independently to both
 players in a two-player statistics request. These are counts recorded since V12,
 not a reconstruction of lifetime hits before the migration. Other profile
-statistics retain their existing completed-leg semantics. No frontend display
-changes are included.
+statistics retain their existing completed-leg semantics.
+
+## Profile display
+
+Own and friend profiles show a dartboard heat map and total recorded board hits,
+with a Numbers option for a per-number single/double/triple breakdown. Comparison
+mode shows each player's board separately. Colours use a shared linear scale
+across all multiplier regions within each board, from no hits to its highest
+region count. Each board's legend shows that maximum.
+
+Both single regions use the same count because their locations are not recorded
+separately; the total counts those darts only once. The outer bull shows single
+25 and the inner bull shows double 25. Misses and busted turns are excluded
+throughout. This rule applies to newly submitted rounds; previously recorded
+counts are not recalculated.

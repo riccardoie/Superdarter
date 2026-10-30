@@ -1584,7 +1584,6 @@
     align-items: center;
     justify-content: center;
   }
-
 }
 
 .game-shared-hint {
@@ -2000,6 +1999,109 @@
 }
 
 /* ===== Profile page ===== */
+.profile-board-hits {
+  margin-top: var(--space-5);
+}
+
+.board-hit-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.board-hit-heading h2 {
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+
+.board-hit-switch {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.board-hit-switch button[aria-pressed='true'] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+}
+
+.board-hit-total {
+  margin-top: var(--space-4);
+}
+
+.board-hit-total strong {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-hit-map {
+  max-width: 380px;
+  margin: var(--space-4) auto 0;
+}
+
+.board-hit-map svg {
+  display: block;
+  width: 100%;
+}
+
+.board-hit-map path,
+.board-hit-map circle {
+  stroke: var(--color-bg);
+  stroke-width: 0.6;
+}
+
+.board-hit-map text {
+  fill: var(--color-text);
+  font-size: 7px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.board-hit-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.board-hit-legend i {
+  flex: 1;
+  height: 10px;
+  border-radius: var(--radius);
+  background: linear-gradient(
+    to right,
+    #263b46 0% 10%,
+    hsl(55 90% 72%) 10%,
+    hsl(0 90% 50%)
+  );
+}
+
+.board-hit-table-wrap {
+  overflow-x: auto;
+  margin-top: var(--space-4);
+}
+
+.board-hit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-hit-table th,
+.board-hit-table td {
+  padding: var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  text-align: right;
+}
+
+.board-hit-table th:first-child {
+  text-align: left;
+}
+
 .profile-page {
   width: 100%;
   max-width: 760px;
@@ -2212,7 +2314,6 @@
   .player-picker-row .btn {
     width: 100%;
   }
-
 }
 
 @media (max-width: 900px) {

@@ -30,13 +30,28 @@ class CountdownRulesTest {
     }
 
     @Test
-    void boardHitsIncludeTheBustingDartButIgnoreDartsAfterBustOrCheckout() {
+    void boardHitsExcludeEntireBustedTurnsButIncludeCheckout() {
         assertThat(CountdownRules.evaluate(40, "20 1 20 3 25 2").boardHits())
-                .isEqualTo(Map.of(20, new BoardHitCounts(1, 0, 1)));
+                .isEmpty();
         assertThat(CountdownRules.evaluate(40, "20 2 25 2 19 3").boardHits())
                 .isEqualTo(Map.of(20, new BoardHitCounts(0, 1, 0)));
         assertThat(CountdownRules.evaluate(20, "20 1 25 2", 9, false).boardHits())
                 .isEqualTo(Map.of(20, new BoardHitCounts(1, 0, 0)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "40, '20 1 20 3', true",
+        "40, '20 1 19 1', true",
+        "40, '20 1 20 1', true",
+        "25, '25 1', true",
+        "40, '20 1 20 3', false"
+    })
+    void allBustReasonsDiscardEveryBoardHit(final int points, final String score,
+                                            final boolean doubleOut) {
+        var result = CountdownRules.evaluate(points, score, 9, doubleOut);
+        assertThat(result.bust()).isTrue();
+        assertThat(result.boardHits()).isEmpty();
     }
 
     @ParameterizedTest

@@ -82,7 +82,7 @@ public final class CountdownRules {
         return new Result(bust ? startingPoints : remaining,
                 bust ? 0 : startingPoints - remaining, triples, bullseyes, won, bust,
                 thrown, bust ? 0 : firstPoints, Math.min(thrown, firstNineDartsLeft),
-                Map.copyOf(boardHits));
+                bust ? Map.of() : Map.copyOf(boardHits));
     }
 
     private static int[] parse(final String score) {

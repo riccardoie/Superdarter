@@ -52,14 +52,14 @@ class BoardHitsIT extends AbstractIT {
     }
 
     @Test
-    void bustHitsAreRecordedIgnoredTrailingDartsAreNotAndUndoRemovesTheHits() {
+    void bustedTurnsRecordNoHitsAndCorrectedCheckoutCountsOnlyWinningDarts() {
         String token = register("alice");
         MatchResponse game = create(token, "301", 1, List.of());
         jdbc().update("UPDATE leg_player_stats SET points=40 WHERE leg_id=?", game.currentLegId());
         game = play(token, game, "20 1 20 3 25 2");
         assertThat(game.players().getFirst().points()).isEqualTo(40);
-        assertThat(hits(token, "alice")).containsEntry(20, 2L).containsEntry(25, 0L);
-        assertThat(detailedHits(token, "alice")).containsEntry(20, new BoardHitResponse(2, 1, 0, 1));
+        assertThat(hits(token, "alice")).allSatisfy((number, count) -> assertThat(count).isZero());
+        assertThat(countRows("round_board_hits")).isZero();
         game = undo(token, game);
         assertThat(hits(token, "alice")).containsEntry(20, 0L);
         assertThat(countRows("round_board_hits")).isZero();
