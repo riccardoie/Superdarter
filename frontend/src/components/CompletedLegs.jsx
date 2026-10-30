@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import GameStatsTable from './GameStatsTable';
+import CricketScoreboard from './CricketScoreboard';
 
 export default function CompletedLegs({ game }) {
   const [expanded, setExpanded] = useState(false);
@@ -23,12 +24,20 @@ export default function CompletedLegs({ game }) {
             <h2>
               Leg {leg.number} — {leg.winner} wins
             </h2>
-            <GameStatsTable
-              players={leg.players}
-              winner={leg.winner}
-              startingPoints={game.startingPoints}
-              showTurns={false}
-            />
+            {game.gametype === 'Cricket' ? (
+              <CricketScoreboard
+                game={{ ...game, turn: null }}
+                players={leg.players}
+                showHeading={false}
+              />
+            ) : (
+              <GameStatsTable
+                players={leg.players}
+                winner={leg.winner}
+                startingPoints={game.startingPoints}
+                showTurns={false}
+              />
+            )}
           </section>
         ))}
       </div>

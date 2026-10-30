@@ -17,6 +17,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import CompletedLegs from '../components/CompletedLegs';
 import { matchStats } from '../gameStats';
 import { isMatchWinningRound } from '../gameCompletion';
+import CricketScoreboard from '../components/CricketScoreboard';
+import { cricketRoundPreview } from '../cricket';
 
 function emptySlots() {
   return [
@@ -89,11 +91,16 @@ export default function GamePage() {
     game.permissions.canScore &&
     inputMode === 'board';
   const activePlayer = game.turn;
-  const roundTotal = slots.reduce((sum, slot) => {
-    const value = Number(slot.value);
-    const multiplier = Number(slot.multiplier);
-    return sum + (!dartInputError(slot) && value > 0 ? value * multiplier : 0);
-  }, 0);
+  const cricket = game.gametype === 'Cricket';
+  const roundTotal = cricket
+    ? (cricketRoundPreview(game, slots)?.scored ?? 0)
+    : slots.reduce((sum, slot) => {
+        const value = Number(slot.value);
+        const multiplier = Number(slot.multiplier);
+        return (
+          sum + (!dartInputError(slot) && value > 0 ? value * multiplier : 0)
+        );
+      }, 0);
   const canSubmit = canSubmitRound(slots);
 
   function updateSlot(index, field, value) {
@@ -298,7 +305,11 @@ export default function GamePage() {
         </p>
       )}
 
-      {!finished && <GameScoreboard game={game} slots={slots} />}
+      {cricket ? (
+        <CricketScoreboard game={game} />
+      ) : (
+        !finished && <GameScoreboard game={game} slots={slots} />
+      )}
 
       {finished ? (
         <>
@@ -313,18 +324,20 @@ export default function GamePage() {
                 : 'History saved. Completed legs count towards player totals; the unfinished leg does not.'}
             </p>
           </div>
-          <div className="game-stats-section">
-            <h2>
-              {game.legsToWin > 1 ? 'Match stats — all legs' : 'Game stats'}
-            </h2>
-            <GameStatsTable
-              players={matchStats(game)}
-              showTurns={false}
-              showLegsWon
-              winner={game.winner}
-              startingPoints={game.startingPoints}
-            />
-          </div>
+          {!cricket && (
+            <div className="game-stats-section">
+              <h2>
+                {game.legsToWin > 1 ? 'Match stats — all legs' : 'Game stats'}
+              </h2>
+              <GameStatsTable
+                players={matchStats(game)}
+                showTurns={false}
+                showLegsWon
+                winner={game.winner}
+                startingPoints={game.startingPoints}
+              />
+            </div>
+          )}
         </>
       ) : game.status === 'PENDING' ? (
         <div className="game-round-panel">
@@ -377,8 +390,8 @@ export default function GamePage() {
               {slots.map((slot, index) => (
                 <div key={index} className="game-dart-slot">
                   <label>
-                    <span>D{index + 1} number</span>
                     <input
+                      aria-label={`Dart ${index + 1} number`}
                       type="text"
                       inputMode="numeric"
                       pattern="([1-9]|1[0-9]|20|25)"
@@ -395,7 +408,12 @@ export default function GamePage() {
                     />
                   </label>
                   <div className="game-multiplier-field">
-                    <span id={`dart-${index}-multiplier`}>Multiplier</span>
+                    <span
+                      className="game-multiplier-label"
+                      id={`dart-${index}-multiplier`}
+                    >
+                      Dart {index + 1} multiplier
+                    </span>
                     <div
                       className="game-multiplier-options"
                       role="group"
@@ -473,7 +491,9 @@ export default function GamePage() {
                 ))}
               </div>
             )}
-            <div className="game-round-total">Round total: {roundTotal}</div>
+            <div className="game-round-total">
+              {cricket ? 'Round points' : 'Round total'}: {roundTotal}
+            </div>
             <div className="game-round-actions">
               <button
                 type="button"

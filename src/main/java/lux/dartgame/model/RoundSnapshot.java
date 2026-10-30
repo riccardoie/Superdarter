@@ -1,6 +1,7 @@
 package lux.dartgame.model;
 
 import jakarta.persistence.Embeddable;
+import jakarta.persistence.Embedded;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -10,6 +11,8 @@ import lombok.Setter;
 @Setter
 public class RoundSnapshot {
     private int points;
+    @Embedded
+    private CricketMarks cricketMarks = new CricketMarks();
     private int turn;
     private int triple20s;
     private int bullseyes;

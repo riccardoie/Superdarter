@@ -23,6 +23,7 @@ public final class Constants {
     public static final String GAMETYPE_501 = "501";
     public static final String GAMETYPE_301_SINGLE_OUT = "301 Single Out";
     public static final String GAMETYPE_501_SINGLE_OUT = "501 Single Out";
+    public static final String GAMETYPE_CRICKET = "Cricket";
 
     private static final int[] IMPOSSIBLE_SCORES =
             {163, 166, 169, 172, 173, 175, 176, 178, 179};
