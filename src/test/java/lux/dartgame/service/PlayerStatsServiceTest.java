@@ -1,6 +1,7 @@
 package lux.dartgame.service;
 
 import lux.dartgame.dto.PlayerStatResponse;
+import lux.dartgame.dto.BoardHitResponse;
 import lux.dartgame.dto.UserRequest;
 import lux.dartgame.model.PlayerStat;
 import lux.dartgame.model.User;
@@ -13,10 +14,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class PlayerStatsServiceTest {
@@ -71,7 +75,37 @@ class PlayerStatsServiceTest {
                 triple20s,
                 bullseyes,
                 highestScore,
-                highestCheckout, 0, 0, 0L);
+                 highestCheckout, 0, 0, 0L, emptyBoardHits());
+    }
+
+    private Map<Integer, BoardHitResponse> emptyBoardHits() {
+        Map<Integer, BoardHitResponse> hits = new LinkedHashMap<>();
+        for (int number = 1; number <= 20; number++) hits.put(number, new BoardHitResponse(0, 0, 0, 0));
+        hits.put(25, new BoardHitResponse(0, 0, 0, 0));
+        return hits;
+    }
+
+    @Test
+    void boardHitsExposeRecordedTotalsWithZeroesForUntouchedNumbers() {
+        when(playerStatRepository.findByPlayerUserNameIn(List.of("alice")))
+                .thenReturn(List.of(playerStat("alice", 0, 0, 0, 0, 0, 0, 0)));
+        var twenty = mock(PlayerStatRepository.BoardHitTotal.class);
+        when(twenty.getBoardNumber()).thenReturn(20);
+        when(twenty.getSingleHits()).thenReturn(4L);
+        when(twenty.getDoubleHits()).thenReturn(2L);
+        when(twenty.getTripleHits()).thenReturn(1L);
+        var bull = mock(PlayerStatRepository.BoardHitTotal.class);
+        when(bull.getBoardNumber()).thenReturn(25);
+        when(bull.getSingleHits()).thenReturn(1L);
+        when(bull.getDoubleHits()).thenReturn(1L);
+        when(bull.getTripleHits()).thenReturn(0L);
+        when(playerStatRepository.findBoardHits("alice")).thenReturn(List.of(twenty, bull));
+        var hits = playerStatsService.getPlayerStats(List.of(new UserRequest("alice")))
+                .getFirst().boardHits();
+        assertThat(hits).hasSize(21).containsEntry(20, new BoardHitResponse(7, 4, 2, 1))
+                .containsEntry(25, new BoardHitResponse(2, 1, 1, 0))
+                .containsEntry(1, new BoardHitResponse(0, 0, 0, 0))
+                .doesNotContainKeys(0, 21, 22, 23, 24);
     }
 
     @Test
