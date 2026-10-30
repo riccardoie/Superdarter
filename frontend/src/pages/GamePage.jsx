@@ -306,7 +306,10 @@ export default function GamePage() {
       )}
 
       {cricket ? (
-        <CricketScoreboard game={game} />
+        <CricketScoreboard
+          game={game}
+          detailPlayers={finished ? matchStats(game) : game.players}
+        />
       ) : (
         !finished && <GameScoreboard game={game} slots={slots} />
       )}

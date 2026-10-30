@@ -1,5 +1,6 @@
 import { CRICKET_TARGETS } from '../cricket';
 import { matchFormatLabel } from '../matchFormat';
+import GameBoardHits from './GameBoardHits';
 
 const MARK_SYMBOLS = ['—', '/', '×', '⊗'];
 
@@ -7,6 +8,7 @@ export default function CricketScoreboard({
   game,
   players = game.players,
   showHeading = true,
+  detailPlayers = players,
 }) {
   return (
     <section className="cricket-scoreboard" aria-label="Cricket scoreboard">
@@ -98,6 +100,7 @@ export default function CricketScoreboard({
           </tbody>
         </table>
       </div>
+      <GameBoardHits players={detailPlayers} />
     </section>
   );
 }

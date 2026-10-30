@@ -2133,15 +2133,14 @@
   background: var(--color-surface);
 }
 
-.game-stats th,
-.game-stats td {
+.game-stats > :is(thead, tbody) > tr > :is(th, td) {
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--color-border);
   text-align: left;
   white-space: nowrap;
 }
 
-.game-stats th {
+.game-stats > :is(thead, tbody) > tr > th {
   background: var(--color-surface-hover);
   color: var(--color-text-muted);
   font-size: 0.75rem;
@@ -2149,11 +2148,11 @@
   text-transform: uppercase;
 }
 
-.game-stats tbody tr:last-child td {
+.game-stats > tbody > tr:last-child > td {
   border-bottom: 0;
 }
 
-.game-stats tbody tr:not(.game-stats-winner):hover {
+.game-stats > tbody > tr:not(.game-stats-winner):hover {
   background: var(--color-surface-hover);
 }
 
@@ -2161,7 +2160,7 @@
   text-align: right !important;
 }
 
-.game-stats-details-row > td {
+.game-stats > tbody > tr.game-stats-details-row > td {
   padding-top: 0;
   white-space: normal;
 }
@@ -2329,7 +2328,8 @@
   gap: var(--space-3);
 }
 
-.board-hit-heading h2 {
+.board-hit-heading h2,
+.board-hit-heading h3 {
   font-size: 1.15rem;
   overflow-wrap: anywhere;
 }
@@ -2420,6 +2420,32 @@
   text-align: left;
 }
 
+.board-hits-compact {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  text-align: left;
+}
+
+.board-hits-compact .board-hit-map {
+  max-width: 280px;
+}
+
+.board-hits-compact .board-hit-heading h3 {
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.board-hits-compact .board-hit-total strong {
+  font-size: 1.25rem;
+}
+
+.game-player-heatmaps {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  text-align: left;
+}
+
 .profile-page {
   width: 100%;
   max-width: 760px;
@@ -2477,9 +2503,9 @@
   }
 
   .game-stats,
-  .game-stats tbody,
-  .game-stats tr,
-  .game-stats td {
+  .game-stats > tbody,
+  .game-stats > tbody > tr,
+  .game-stats > tbody > tr > td {
     display: block;
   }
 
@@ -2488,23 +2514,23 @@
     background: transparent;
   }
 
-  .game-stats thead {
+  .game-stats > thead {
     display: none;
   }
 
-  .game-stats tbody {
+  .game-stats > tbody {
     display: grid;
     gap: var(--space-3);
   }
 
-  .game-stats tr {
+  .game-stats > tbody > tr {
     overflow: hidden;
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     background: var(--color-bg);
   }
 
-  .game-stats td {
+  .game-stats > tbody > tr > td {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--space-3);
@@ -2512,7 +2538,7 @@
     text-align: right;
   }
 
-  .game-stats td::before {
+  .game-stats > tbody > tr > td::before {
     color: var(--color-text-muted);
     content: attr(data-label);
     font-size: 0.75rem;
@@ -2522,7 +2548,7 @@
     text-transform: uppercase;
   }
 
-  .game-stats td:first-child {
+  .game-stats > tbody > tr > td:first-child {
     background: var(--color-surface-hover);
     color: var(--color-text);
     font-weight: 700;
@@ -2543,7 +2569,7 @@
     border-top-right-radius: 0;
   }
 
-  .game-stats .game-stats-details-row > td {
+  .game-stats > tbody > tr.game-stats-details-row > td {
     display: block;
     background: var(--color-bg);
     font-weight: 400;

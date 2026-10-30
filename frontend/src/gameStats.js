@@ -1,3 +1,5 @@
+import { sumBoardHits } from './boardHits.js';
+
 export function matchStats(game) {
   if (!game.legs?.length) return game.players;
 
@@ -39,6 +41,7 @@ export function matchStats(game) {
     }
     return {
       ...player,
+      boardHits: sumBoardHits(stats.map((entry) => entry.boardHits)),
       scoringStats,
       turns,
       average: turns > 0 ? scored / turns : 0,

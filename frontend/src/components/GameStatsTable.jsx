@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import ProfileBoardHits from './ProfileBoardHits';
 
 const SCORE_COUNTS = [
   '40+',
@@ -142,6 +143,7 @@ export default function GameStatsTable({
                         </div>
                       ))}
                     </dl>
+                    <ProfileBoardHits boardHits={player.boardHits} compact />
                   </details>
                 </td>
               </tr>
