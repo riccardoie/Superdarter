@@ -31,6 +31,7 @@ class CricketIT extends AbstractIT {
         game = play(token, game, "20 3 20 2 25 2");
         assertThat(game.players().getFirst().points()).isEqualTo(40);
         assertThat(game.players().getFirst().cricketMarks()).containsEntry(20, 3).containsEntry(25, 2);
+        assertThat(game.players().getFirst().boardHits().get(20).total()).isEqualTo(2);
         game = play(token, game, "20 3 25 1 1 3");
         game = play(token, game, "20 3 25 2 25 2");
         assertThat(game.players().getLast().points()).isEqualTo(25);
@@ -41,6 +42,7 @@ class CricketIT extends AbstractIT {
         game = undo(token, game);
         assertThat(game.players().getFirst().points()).isEqualTo(40);
         assertThat(game.players().getFirst().cricketMarks()).containsEntry(25, 2);
+        assertThat(game.players().getFirst().boardHits().get(25).total()).isEqualTo(1);
         assertThat(game.players().getLast().points()).isEqualTo(25);
         assertThat(game.turn()).isEqualTo("alice");
         assertThat(get(token, game)).isEqualTo(game);

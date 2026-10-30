@@ -72,3 +72,19 @@ separately; the total counts those darts only once. The outer bull shows single
 25 and the inner bull shows double 25. Misses and busted turns are excluded
 throughout. This rule applies to newly submitted rounds; previously recorded
 counts are not recalculated.
+
+## Game and leg heat maps
+
+Each player in `MatchResponse.players` now includes `boardHits` for the current
+leg. Each player in `legs[].players` includes the same breakdown for that specific
+leg, with all 21 board numbers present. Counts are grouped by the leg-player
+record within the requested match, including match-local guests. Profile totals
+and other matches never contribute.
+
+Player **More stats** panels show the heat map, Numbers switch and board-hit total.
+Completed-leg panels use that leg's counts; overall game panels sum the player's
+counts across all of the game's legs, including a retained unfinished leg in an
+abandoned game. Cricket uses the same heat-map controls in its player details.
+Existing bust, miss, winning-dart and undo rules apply unchanged. Rematches start
+with empty maps. Games played before hit tracking have no inferred historical
+hits. This display uses existing round-owned hit rows and needs no new migration.

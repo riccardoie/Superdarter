@@ -6,12 +6,16 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
 import lux.dartgame.constants.Constants;
 import lux.dartgame.dto.CreateGameRequest;
 import lux.dartgame.dto.FriendResponse;
 import lux.dartgame.dto.MatchResponse;
+import lux.dartgame.dto.BoardHitResponse;
 import lux.dartgame.dto.PlayedRoundRequest;
 import lux.dartgame.dto.UserRequest;
 import lux.dartgame.dto.UndoRoundRequest;
@@ -420,11 +424,12 @@ public class MatchService {
         boolean manager = match.getOwner().getUserName().equals(actor) || admin(actor);
         boolean pending = match.getStatus() == MatchStatus.PENDING;
         boolean playing = match.getStatus() == MatchStatus.IN_PROGRESS;
-        var players = players(match, leg);
+        var boardHits = boardHits(match);
+        var players = players(match, leg, boardHits);
         var legs = match.getLegs().stream().map(l -> new MatchResponse.LegSummary(
                 l.getLegId(), l.getLegNumber(), l.getStatus(),
                 winnerName(l.getWinner(), l.getWinnerGuestName()),
-                players(match, l))).toList();
+                players(match, l, boardHits))).toList();
         return new MatchResponse(match.getMatchId(), match.getOwner().getUserName(),
                 match.getGametype().getGametype(),
                 startingPoints(match.getGametype().getGametype()), match.getStatus(),
@@ -442,7 +447,8 @@ public class MatchService {
                 match.getLegsToWin());
     }
 
-    private List<MatchResponse.Player> players(final Match match, final Leg leg) {
+    private List<MatchResponse.Player> players(final Match match, final Leg leg,
+            final Map<Long, Map<Integer, BoardHitResponse>> boardHits) {
         return leg.getPlayerStats().stream()
                 .sorted(Comparator.comparingInt(LegPlayerStat::getPosition))
                 .map(s -> new MatchResponse.Player(playerName(s), s.getPosition(),
@@ -450,8 +456,32 @@ public class MatchService {
                         s.getHighestScore(), s.getHighestCheckout(),
                         legsWon(match, playerName(s)), scoringStats(s), s.getUser() == null,
                         Constants.GAMETYPE_CRICKET.equals(match.getGametype().getGametype())
-                                ? s.getCricketMarks().asMap() : null))
+                                ? s.getCricketMarks().asMap() : null,
+                        boardHits.getOrDefault(s.getStatId(), emptyBoardHits())))
                 .toList();
+    }
+
+    private Map<Long, Map<Integer, BoardHitResponse>> boardHits(final Match match) {
+        Map<Long, Map<Integer, BoardHitResponse>> result = new HashMap<>();
+        for (var hit : matches.findBoardHits(match.getMatchId())) {
+            long singles = hit.getSingleHits();
+            long doubles = hit.getDoubleHits();
+            long triples = hit.getTripleHits();
+            result.computeIfAbsent(hit.getStatId(), ignored -> emptyBoardHits())
+                    .put(hit.getBoardNumber(), new BoardHitResponse(
+                            singles + doubles + triples, singles, doubles, triples));
+        }
+        return result;
+    }
+
+    private Map<Integer, BoardHitResponse> emptyBoardHits() {
+        Map<Integer, BoardHitResponse> result = new LinkedHashMap<>();
+        BoardHitResponse empty = new BoardHitResponse(0, 0, 0, 0);
+        for (int number = 1; number <= Constants.MAX_DART_NUMBER; number++) {
+            result.put(number, empty);
+        }
+        result.put(Constants.BULLSEYE_VALUE, empty);
+        return result;
     }
 
     private MatchResponse.ScoringStats scoringStats(final LegPlayerStat stat) {
