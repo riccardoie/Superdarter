@@ -85,14 +85,24 @@ export function BoardHitMap({ rows, max }) {
   );
 }
 
-export default function ProfileBoardHits({ boardHits, username }) {
+export default function ProfileBoardHits({
+  boardHits,
+  username,
+  compact = false,
+}) {
   const [view, setView] = useState('dartboard');
   const id = useId();
   const { rows, total, max } = boardHitStats(boardHits);
+  const Heading = compact ? 'h3' : 'h2';
   return (
-    <section className="profile-board-hits card" aria-labelledby={id}>
+    <section
+      className={`profile-board-hits card${compact ? ' board-hits-compact' : ''}`}
+      aria-labelledby={id}
+    >
       <div className="board-hit-heading">
-        <h2 id={id}>{username ? `${username}’s board hits` : 'Board hits'}</h2>
+        <Heading id={id}>
+          {username ? `${username}’s board hits` : 'Board hits'}
+        </Heading>
         <div
           className="board-hit-switch"
           role="group"

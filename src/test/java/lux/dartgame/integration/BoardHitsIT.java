@@ -36,6 +36,9 @@ class BoardHitsIT extends AbstractIT {
         assertThat(all).containsEntry(25, 2L).doesNotContainKeys(0, 21, 22, 23, 24);
         game = play(token, game, "20 1 20 2 20 3");
         assertThat(game.status()).isEqualTo(MatchStatus.IN_PROGRESS);
+        assertThat(game.players().getFirst().boardHits())
+                .containsEntry(20, new BoardHitResponse(4, 2, 1, 1))
+                .containsEntry(25, new BoardHitResponse(2, 1, 1, 0));
         assertThat(hits(token, "alice")).containsEntry(20, 4L).containsEntry(25, 2L);
         assertThat(detailedHits(token, "alice"))
                 .containsEntry(20, new BoardHitResponse(4, 2, 1, 1))
@@ -58,12 +61,15 @@ class BoardHitsIT extends AbstractIT {
         jdbc().update("UPDATE leg_player_stats SET points=40 WHERE leg_id=?", game.currentLegId());
         game = play(token, game, "20 1 20 3 25 2");
         assertThat(game.players().getFirst().points()).isEqualTo(40);
+        assertThat(game.players().getFirst().boardHits().get(20).total()).isZero();
         assertThat(hits(token, "alice")).allSatisfy((number, count) -> assertThat(count).isZero());
         assertThat(countRows("round_board_hits")).isZero();
         game = undo(token, game);
         assertThat(hits(token, "alice")).containsEntry(20, 0L);
         assertThat(countRows("round_board_hits")).isZero();
-        play(token, game, "20 2 25 2 19 3");
+        game = play(token, game, "20 2 25 2 19 3");
+        assertThat(game.players().getFirst().boardHits())
+                .containsEntry(20, new BoardHitResponse(1, 0, 1, 0));
         assertThat(hits(token, "alice")).containsEntry(20, 1L)
                 .containsEntry(25, 0L).containsEntry(19, 0L);
         assertThat(detailedHits(token, "alice")).containsEntry(20, new BoardHitResponse(1, 0, 1, 0));
@@ -92,15 +98,25 @@ class BoardHitsIT extends AbstractIT {
         MatchResponse game = create(token, "301", 2, List.of());
         game = winLeg(token, game);
         assertThat(game.legs()).hasSize(2);
+        assertThat(game.players().getFirst().boardHits()).hasSize(21)
+                .allSatisfy((number, counts) -> assertThat(counts.total()).isZero());
+        assertThat(game.legs().getFirst().players().getFirst().boardHits())
+                .containsEntry(20, new BoardHitResponse(4, 0, 0, 4));
         assertThat(hits(token, "alice")).containsEntry(20, 4L);
         game = winLeg(token, game);
         assertThat(game.status()).isEqualTo(MatchStatus.COMPLETED);
         Map<Integer, Long> completed = hits(token, "alice");
+        assertThat(game.players().getFirst().boardHits().get(20).total()).isEqualTo(4);
+        assertThat(game.legs()).allSatisfy(leg ->
+                assertThat(leg.players().getFirst().boardHits().get(20).total()).isEqualTo(4));
         assertThat(completed).containsEntry(20, 8L).containsEntry(1, 2L);
         MatchResponse rematch = rest().postForObject(GAMES_URL + "/" + game.gameId() + "/rematch",
                 authed(token, null), MatchResponse.class);
         assertThat(hits(token, "alice")).isEqualTo(completed);
+        assertThat(rematch.players().getFirst().boardHits().get(20).total()).isZero();
         rematch = play(token, rematch, "25 1");
+        assertThat(rematch.players().getFirst().boardHits())
+                .containsEntry(25, new BoardHitResponse(1, 1, 0, 0));
         assertThat(hits(token, "alice")).containsEntry(20, 8L).containsEntry(25, 1L);
         undo(token, rematch);
         assertThat(hits(token, "alice")).isEqualTo(completed);
@@ -113,6 +129,11 @@ class BoardHitsIT extends AbstractIT {
         MatchResponse game = create(alice, "501", 1, List.of("bob"));
         game = play(alice, game, "20 3");
         game = play(alice, game, "25 2 19 3");
+        assertThat(game.players().getFirst().boardHits().get(20).total()).isEqualTo(1);
+        assertThat(game.players().getFirst().boardHits().get(25).total()).isZero();
+        assertThat(game.players().getLast().boardHits())
+                .containsEntry(25, new BoardHitResponse(1, 0, 1, 0))
+                .containsEntry(19, new BoardHitResponse(1, 0, 0, 1));
         assertThat(hits(alice, "alice")).containsEntry(20, 1L)
                 .containsEntry(25, 0L).containsEntry(19, 0L);
         assertThat(hits(bob, "bob")).allSatisfy((number, count) -> assertThat(count).isZero());
@@ -121,6 +142,23 @@ class BoardHitsIT extends AbstractIT {
         undo(alice, game);
         assertThat(jdbc().queryForObject("SELECT SUM(single_hits+double_hits+triple_hits) FROM round_board_hits",
                 Long.class)).isEqualTo(1L);
+    }
+
+    @Test
+    void gameHitMapsNeverIncludeOtherGamesOrProfileTotals() {
+        String token = register("alice");
+        MatchResponse first = play(token, create(token, "501", 1, List.of()), "20 3");
+        play(token, create(token, "501", 1, List.of()), "25 2");
+        MatchResponse reloaded = rest().exchange(GAMES_URL + "/" + first.gameId(), HttpMethod.GET,
+                authed(token, null), MatchResponse.class).getBody();
+        assertThat(reloaded).isEqualTo(first);
+        assertThat(reloaded.players().getFirst().boardHits())
+                .containsEntry(20, new BoardHitResponse(1, 0, 0, 1))
+                .containsEntry(25, new BoardHitResponse(0, 0, 0, 0));
+        assertThat(hits(token, "alice")).containsEntry(25, 1L);
+        MatchResponse undone = undo(token, reloaded);
+        assertThat(undone.players().getFirst().boardHits().get(20).total()).isZero();
+        assertThat(undone.legs().getFirst().players().getFirst().boardHits().get(20).total()).isZero();
     }
 
     @Test

@@ -9,6 +9,7 @@ import {
   standingsInStartingOrder,
 } from '../src/matchFormat.js';
 import { matchStats } from '../src/gameStats.js';
+import { sumBoardHits } from '../src/boardHits.js';
 
 let server;
 let api;
@@ -160,6 +161,7 @@ test('match stats aggregate all legs with a turn-weighted average', () => {
       bullseyes: 3,
       triple20s: 3,
       average: 602 / 8,
+      boardHits: sumBoardHits([]),
     },
   ]);
 });

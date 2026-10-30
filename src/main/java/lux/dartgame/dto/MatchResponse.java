@@ -14,7 +14,8 @@ public record MatchResponse(long gameId, String owner, String gametype, int star
     public record Player(String username, int position, int points, int turns,
                          int bullseyes, int triple20s, int highestScore, int highestCheckout,
                             long legsWon, ScoringStats scoringStats, boolean guest,
-                            Map<Integer, Integer> cricketMarks) {
+                            Map<Integer, Integer> cricketMarks,
+                            Map<Integer, BoardHitResponse> boardHits) {
     }
 
     public record ScoringStats(int dartsThrown, int firstNinePoints, int firstNineDarts,

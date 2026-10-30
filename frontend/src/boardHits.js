@@ -35,3 +35,20 @@ export function heatColor(hits, max) {
   const intensity = Math.min(1, hits / max);
   return `hsl(${Math.round(55 * (1 - intensity))} 90% ${Math.round(72 - 22 * intensity)}%)`;
 }
+
+export function sumBoardHits(boards) {
+  const total = Object.fromEntries(
+    BOARD_NUMBERS.map((number) => [
+      number,
+      { total: 0, singles: 0, doubles: 0, triples: 0 },
+    ])
+  );
+  for (const board of boards) {
+    for (const row of boardHitStats(board).rows) {
+      for (const field of ['total', 'singles', 'doubles', 'triples']) {
+        total[row.number][field] += row[field];
+      }
+    }
+  }
+  return total;
+}
