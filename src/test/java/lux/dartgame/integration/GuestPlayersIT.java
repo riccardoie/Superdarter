@@ -15,8 +15,41 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 class GuestPlayersIT extends AbstractIT {
+    @Test
+    void drawnGuestStarterPersistsAcrossReloadUndoAndLegRotation() {
+        when(starters.choose(3)).thenReturn(2, 1);
+        String token = register("alice");
+        register("carol");
+        befriend("alice", "carol");
+        MatchResponse game = create(token, new CreateGameRequest("301",
+                List.of(new UserRequest("carol")), 3, List.of("Guest B")));
+        assertThat(game.turn()).isEqualTo("Guest B");
+        assertThat(get(token, game)).isEqualTo(game);
+        assertThat(jdbc().queryForObject("SELECT starting_player_offset FROM matches WHERE match_id=?",
+                Integer.class, game.gameId())).isEqualTo(2);
+        game = start(token, game);
+        game = win(token, game, "Guest B");
+        assertThat(game.turn()).isEqualTo("alice");
+        game = undo(token, get(token, game));
+        assertThat(game.turn()).isEqualTo("Guest B");
+        game = play(token, game, "20 2");
+        assertThat(game.turn()).isEqualTo("alice");
+        game = win(token, game, "Guest B");
+        assertThat(game.turn()).isEqualTo("carol");
+        game = win(token, game, "Guest B");
+        assertThat(game.status()).isEqualTo(MatchStatus.COMPLETED);
+        MatchResponse rematch = rest().postForObject(GAMES_URL + "/" + game.gameId() + "/rematch",
+                authed(token, null), MatchResponse.class);
+        assertThat(rematch.turn()).isEqualTo("carol");
+        assertThat(get(token, rematch)).isEqualTo(rematch);
+        verify(starters, times(2)).choose(3);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"301", "501", "301 Single Out", "501 Single Out"})
     void rematchPreservesSettingsAndOriginalOrderWithFreshScores(final String gametype) {

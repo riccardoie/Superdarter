@@ -45,16 +45,19 @@ public class MatchService {
     private final GametypeRepository gametypes;
     private final MatchStatisticsService statistics;
     private final FriendService friends;
+    private final StartingPlayerSelector starters;
 
     public MatchService(final MatchRepository matchesParam, final UserRepository usersParam,
                         final GametypeRepository gametypesParam,
                         final MatchStatisticsService statisticsParam,
-                        final FriendService friendsParam) {
+                        final FriendService friendsParam,
+                        final StartingPlayerSelector startersParam) {
         matches = matchesParam;
         users = usersParam;
         gametypes = gametypesParam;
         statistics = statisticsParam;
         friends = friendsParam;
+        starters = startersParam;
     }
 
     @Transactional
@@ -103,6 +106,7 @@ public class MatchService {
         if (match.getParticipants().size() > Constants.MAX_NR_OF_PLAYERS) {
             throw new IllegalArgumentException("Maximum 10 players including the owner and guests");
         }
+        match.setStartingPlayerOffset(starters.choose(match.getParticipants().size()));
         createLeg(match);
         matches.saveAndFlush(match);
         return response(match, actor);
@@ -144,6 +148,7 @@ public class MatchService {
         }
         match.setStatus(MatchStatus.IN_PROGRESS);
         match.setStartedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
+        match.setStartingPlayerOffset(starters.choose(match.getParticipants().size()));
         createLeg(match);
         advanceRevision(match);
         matches.saveAndFlush(match);
@@ -324,7 +329,8 @@ public class MatchService {
             leg.setStartedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
         }
         List<MatchParticipant> participants = match.getParticipants();
-        int offset = (leg.getLegNumber() - 1) % participants.size();
+        int offset = (match.getStartingPlayerOffset() + leg.getLegNumber() - 1)
+                % participants.size();
         for (int position = 0; position < participants.size(); position++) {
             var participant = participants.get((position + offset) % participants.size());
             LegPlayerStat stat = new LegPlayerStat();
