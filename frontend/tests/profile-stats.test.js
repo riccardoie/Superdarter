@@ -38,7 +38,12 @@ test('comparison choices handle no friends and remove duplicate usernames', () =
 });
 
 test('comparison values retain zeroes, format averages and distinguish unavailable data', () => {
-  assert.equal(PROFILE_STAT_FIELDS.length, 10);
+  assert.equal(PROFILE_STAT_FIELDS.length, 11);
+  assert.ok(
+    !PROFILE_STAT_FIELDS.some(([, field]) =>
+      ['triple20s', 'bullseyes'].includes(field)
+    )
+  );
   assert.equal(profileStatValue({ avgPoints: 45.567 }, 'avgPoints'), '45.57');
   assert.equal(profileStatValue({ avgPoints: 0 }, 'avgPoints'), '0.00');
   assert.equal(profileStatValue({ playedMatches: 0 }, 'playedMatches'), 0);
@@ -47,4 +52,13 @@ test('comparison values retain zeroes, format averages and distinguish unavailab
     'Not available'
   );
   assert.equal(profileStatValue(null, 'highestScore'), 'Not available');
+  for (const field of [
+    'highestLegAverage',
+    'highestGameAverage',
+    'highestFirstNineAverage',
+  ]) {
+    assert.equal(profileStatValue({ [field]: 90.125 }, field), '90.13');
+    assert.equal(profileStatValue({ [field]: 0 }, field), '0.00');
+    assert.equal(profileStatValue({ [field]: null }, field), 'Not available');
+  }
 });

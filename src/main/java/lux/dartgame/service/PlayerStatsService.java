@@ -41,7 +41,9 @@ public class PlayerStatsService {
                         stat.getPlayedLegs(),
                         playerStatRepository.findCompletedDartsThrown(
                                 stat.getPlayer().getUserName()),
-                        boardHits(stat.getPlayer().getUserName())))
+                        boardHits(stat.getPlayer().getUserName()),
+                        stat.getHighestLegAverage(), stat.getHighestGameAverage(),
+                        stat.getHighestFirstNineAverage()))
                 .toList();
     }
 
