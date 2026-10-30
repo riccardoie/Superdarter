@@ -30,6 +30,9 @@ public class PlayerStat {
     private int bullseyes;
     private int highestScore;
     private int highestCheckout;
+    private Float highestLegAverage;
+    private Float highestGameAverage;
+    private Float highestFirstNineAverage;
 
     @NotNull
     @JoinColumn(name = "player_id", nullable = false)

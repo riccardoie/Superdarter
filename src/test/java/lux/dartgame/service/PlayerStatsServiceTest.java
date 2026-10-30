@@ -75,7 +75,7 @@ class PlayerStatsServiceTest {
                 triple20s,
                 bullseyes,
                 highestScore,
-                 highestCheckout, 0, 0, 0L, emptyBoardHits());
+                  highestCheckout, 0, 0, 0L, emptyBoardHits(), null, null, null);
     }
 
     private Map<Integer, BoardHitResponse> emptyBoardHits() {
@@ -143,6 +143,25 @@ class PlayerStatsServiceTest {
         when(playerStatRepository.findCompletedDartsThrown("alice")).thenReturn(42L);
         assertThat(playerStatsService.getPlayerStats(List.of(new UserRequest("alice")))
                 .getFirst().dartsThrown()).isEqualTo(42L);
+    }
+
+    @Test
+    void exposesAverageRecordsAndKeepsUnavailableValuesNull() {
+        PlayerStat alice = playerStat("alice", 0, 0, 0, 0, 0, 0, 0);
+        alice.setHighestLegAverage(100.5f);
+        alice.setHighestGameAverage(90.25f);
+        alice.setHighestFirstNineAverage(120f);
+        PlayerStat bob = playerStat("bob", 0, 0, 0, 0, 0, 0, 0);
+        when(playerStatRepository.findByPlayerUserNameIn(List.of("alice", "bob")))
+                .thenReturn(List.of(alice, bob));
+        var result = playerStatsService.getPlayerStats(List.of(new UserRequest("alice"),
+                new UserRequest("bob")));
+        assertThat(result.getFirst().highestLegAverage()).isEqualTo(100.5f);
+        assertThat(result.getFirst().highestGameAverage()).isEqualTo(90.25f);
+        assertThat(result.getFirst().highestFirstNineAverage()).isEqualTo(120f);
+        assertThat(result.getLast().highestLegAverage()).isNull();
+        assertThat(result.getLast().highestGameAverage()).isNull();
+        assertThat(result.getLast().highestFirstNineAverage()).isNull();
     }
 
     @Test

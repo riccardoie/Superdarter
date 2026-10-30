@@ -5,16 +5,24 @@ export const PROFILE_STAT_FIELDS = [
   ['Legs won', 'wonLegs'],
   ['Darts thrown', 'dartsThrown'],
   ['Average points', 'avgPoints'],
+  ['Highest leg average', 'highestLegAverage'],
+  ['Highest game average', 'highestGameAverage'],
+  ['Highest first 9 average', 'highestFirstNineAverage'],
   ['Highest score', 'highestScore'],
   ['Highest checkout', 'highestCheckout'],
-  ['Triple 20s', 'triple20s'],
-  ['Bullseyes', 'bullseyes'],
 ];
 
 export function profileStatValue(stats, field) {
   const value = stats?.[field];
   if (value == null) return 'Not available';
-  return field === 'avgPoints' ? value.toFixed(2) : value;
+  return [
+    'avgPoints',
+    'highestLegAverage',
+    'highestGameAverage',
+    'highestFirstNineAverage',
+  ].includes(field)
+    ? value.toFixed(2)
+    : value;
 }
 
 export function comparisonCandidates(owner, profile, friends) {

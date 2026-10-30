@@ -68,6 +68,16 @@ public class MatchStatisticsService {
                 total.setHighestCheckout(
                         Math.max(total.getHighestCheckout(), stat.getHighestCheckout()));
             }
+            var records = AverageRecords.calculate(leg.getMatch().getLegs().stream()
+                    .flatMap(l -> l.getPlayerStats().stream())
+                    .filter(s -> s.getUser() != null && s.getUser().getUserId() == user.getUserId())
+                    .toList());
+            total.setHighestLegAverage(AverageRecords.best(
+                    total.getHighestLegAverage(), records.legAverage()));
+            total.setHighestGameAverage(AverageRecords.best(
+                    total.getHighestGameAverage(), records.gameAverage()));
+            total.setHighestFirstNineAverage(AverageRecords.best(
+                    total.getHighestFirstNineAverage(), records.firstNineAverage()));
         }
     }
 
@@ -106,6 +116,10 @@ public class MatchStatisticsService {
             total.setHighestCheckout(completed.stream().filter(s -> !cricket(s))
                     .mapToInt(LegPlayerStat::getHighestCheckout)
                     .max().orElse(0));
+            var records = AverageRecords.calculate(completed);
+            total.setHighestLegAverage(records.legAverage());
+            total.setHighestGameAverage(records.gameAverage());
+            total.setHighestFirstNineAverage(records.firstNineAverage());
         }
     }
 
