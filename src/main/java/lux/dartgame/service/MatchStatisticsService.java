@@ -68,6 +68,7 @@ public class MatchStatisticsService {
                 total.setHighestCheckout(
                         Math.max(total.getHighestCheckout(), stat.getHighestCheckout()));
             }
+<<<<<<< HEAD
             var records = AverageRecords.calculate(leg.getMatch().getLegs().stream()
                     .flatMap(l -> l.getPlayerStats().stream())
                     .filter(s -> s.getUser() != null && s.getUser().getUserId() == user.getUserId())
@@ -78,6 +79,8 @@ public class MatchStatisticsService {
                     total.getHighestGameAverage(), records.gameAverage()));
             total.setHighestFirstNineAverage(AverageRecords.best(
                     total.getHighestFirstNineAverage(), records.firstNineAverage()));
+=======
+>>>>>>> cf6bf2f (feat: add cricket)
         }
     }
 
