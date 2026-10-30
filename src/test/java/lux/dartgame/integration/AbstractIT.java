@@ -6,6 +6,7 @@ import java.util.Base64;
 import lux.dartgame.dto.LoginRequest;
 import lux.dartgame.dto.RegisterRequest;
 import lux.dartgame.dto.TokenResponse;
+import lux.dartgame.service.StartingPlayerSelector;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -35,6 +37,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 abstract class AbstractIT {
+
+    // Keep existing game scripts deterministic; starter-specific tests stub other draws.
+    @MockitoBean
+    protected StartingPlayerSelector starters;
 
     protected static final String AUTH_URL = "/api/auth";
     protected static final String GAMES_URL = "/api/games";
