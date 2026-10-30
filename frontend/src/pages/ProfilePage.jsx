@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { getFriends, getPlayerStats, getUsername } from '../api';
 import ProfileComparison from '../components/ProfileComparison';
 import ProfileComparisonPicker from '../components/ProfileComparisonPicker';
+import ProfileBoardHits from '../components/ProfileBoardHits';
 import {
   comparisonCandidates,
   PROFILE_STAT_FIELDS,
@@ -103,7 +104,21 @@ export default function ProfilePage() {
           Failed to load profile: {error.message}
         </p>
       ) : compareWith ? (
-        <ProfileComparison usernames={[profile, compareWith]} stats={players} />
+        <>
+          <ProfileComparison
+            usernames={[profile, compareWith]}
+            stats={players}
+          />
+          {[profile, compareWith].map((name) => (
+            <ProfileBoardHits
+              key={name}
+              username={name}
+              boardHits={
+                players.find((player) => player.username === name)?.boardHits
+              }
+            />
+          ))}
+        </>
       ) : stats === null ? (
         <>
           <p className="state-message">
@@ -121,6 +136,7 @@ export default function ProfilePage() {
               </div>
             ))}
           </dl>
+          <ProfileBoardHits key={profile} boardHits={stats.boardHits} />
         </>
       )}
     </div>
