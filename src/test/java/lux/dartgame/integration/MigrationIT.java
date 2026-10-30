@@ -9,6 +9,62 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MigrationIT extends AbstractIT {
     @Test
+    void boardHitsMigrationPreservesExistingRoundsWithoutInventingHistoricalHits() throws Exception {
+        String schema = "board_hits_upgrade_test";
+        try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(),
+                POSTGRES.getUsername(), POSTGRES.getPassword());
+             var sql = connection.createStatement()) {
+            sql.execute("CREATE SCHEMA " + schema);
+            try {
+                Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                        POSTGRES.getPassword()).defaultSchema(schema).target("11").load().migrate();
+                sql.execute("SET search_path TO " + schema);
+                sql.execute("INSERT INTO users (user_name,password,email,role_id) "
+                        + "SELECT 'existing','hash','old@test',role_id FROM roles WHERE role='USER'");
+                sql.execute("INSERT INTO matches (owner_id,gametype_id,status,created_at) "
+                        + "SELECT user_id,gametype_id,'IN_PROGRESS',now() FROM users "
+                        + "CROSS JOIN gametypes WHERE gametype='301'");
+                sql.execute("INSERT INTO match_participants (match_id,user_id,position) "
+                        + "SELECT match_id,user_id,0 FROM matches CROSS JOIN users");
+                sql.execute("INSERT INTO legs (match_id,leg_number,status) "
+                        + "SELECT match_id,1,'IN_PROGRESS' FROM matches");
+                sql.execute("INSERT INTO leg_player_stats (leg_id,user_id,position,points,turn) "
+                        + "SELECT leg_id,user_id,0,241,1 FROM legs CROSS JOIN users");
+                String columns = "points,turn,triple20s,bullseyes,highest_score,highest_checkout,"
+                        + "scoring_stats_available,darts_thrown,first_nine_points,first_nine_darts,"
+                        + "score40,score60,score80,score100,score120,score140,score160,score180";
+                String selected = java.util.Arrays.stream(columns.split(","))
+                        .map(column -> "s." + column).collect(java.util.stream.Collectors.joining(","));
+                sql.execute("INSERT INTO played_rounds(match_id,stat_id," + columns + ") "
+                        + "SELECT l.match_id,s.stat_id," + selected
+                        + " FROM leg_player_stats s JOIN legs l USING(leg_id)");
+                var migration = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(),
+                        POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema).load();
+                assertThat(migration.migrate().migrationsExecuted).isEqualTo(1);
+                assertThat(migration.migrate().migrationsExecuted).isZero();
+                try (var rows = sql.executeQuery("SELECT points,turn FROM played_rounds")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isEqualTo(241);
+                    assertThat(rows.getInt(2)).isEqualTo(1);
+                }
+                try (var rows = sql.executeQuery("SELECT COUNT(*) FROM round_board_hits")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isZero();
+                }
+                sql.execute("INSERT INTO round_board_hits(round_id,board_number,single_hits) "
+                        + "SELECT round_id,20,1 FROM played_rounds");
+                sql.execute("DELETE FROM played_rounds");
+                try (var rows = sql.executeQuery("SELECT COUNT(*) FROM round_board_hits")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isZero();
+                }
+            } finally {
+                sql.execute("DROP SCHEMA " + schema + " CASCADE");
+            }
+        }
+    }
+
+    @Test
     void guestMigrationPreservesRegisteredHistoryAndEnforcesExclusiveIdentities() throws Exception {
         String schema = "guest_upgrade_test";
         try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(),

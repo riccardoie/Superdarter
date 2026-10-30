@@ -195,6 +195,7 @@ public class MatchService {
         PlayedRound round = new PlayedRound();
         round.setMatch(match);
         round.setPlayerStat(stat);
+        round.getBoardHits().putAll(result.boardHits());
         RoundSnapshot snapshot = new RoundSnapshot();
         BeanUtils.copyProperties(stat, snapshot);
         round.setBeforeRound(snapshot);
