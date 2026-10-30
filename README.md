@@ -2,9 +2,7 @@
 
 Super Darter is a web application for playing 301 and 501 darts. Players create games directly, add up to nine other registered players, score double-out legs, and review results and player statistics. Solo play is supported.
 
-**Breaking match refactor:** this release requires a fresh database for an existing deployment. Follow [the Render cutover checklist](docs/render-match-cutover.md) before deploying. Existing accounts and game history are not migrated.
-
-Deployment is configured for Render via `render.yaml`.
+Deployment is configured for Render via `render.yaml` to https://superdarter-frontend.onrender.com/.
 
 ## Run Locally
 

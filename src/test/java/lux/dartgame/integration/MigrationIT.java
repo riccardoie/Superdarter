@@ -40,8 +40,13 @@ class MigrationIT extends AbstractIT {
                         + " FROM leg_player_stats s JOIN legs l USING(leg_id)");
                 var migration = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(),
                         POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema).load();
-                assertThat(migration.migrate().migrationsExecuted).isEqualTo(2);
+                assertThat(migration.migrate().migrationsExecuted).isEqualTo(3);
                 assertThat(migration.migrate().migrationsExecuted).isZero();
+                try (var rows = sql.executeQuery("SELECT cricket15,cricket25 FROM played_rounds")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isZero();
+                    assertThat(rows.getInt(2)).isZero();
+                }
                 try (var rows = sql.executeQuery("SELECT starting_player_offset FROM matches")) {
                     assertThat(rows.next()).isTrue();
                     assertThat(rows.getInt(1)).isZero();

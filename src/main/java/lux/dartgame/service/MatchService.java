@@ -22,6 +22,7 @@ import lux.dartgame.exception.GameNotFoundException;
 import lux.dartgame.exception.InvalidTurnException;
 import lux.dartgame.exception.UsernameNotFoundException;
 import lux.dartgame.model.Leg;
+import lux.dartgame.model.CricketMarks;
 import lux.dartgame.model.LegPlayerStat;
 import lux.dartgame.model.Match;
 import lux.dartgame.model.MatchParticipant;
@@ -194,25 +195,41 @@ public class MatchService {
         if (!playerName(stat).equals(request.username())) {
             throw new InvalidTurnException();
         }
-        CountdownRules.Result result = CountdownRules.evaluate(stat.getPoints(), request.score(),
-                Constants.FIRST_NINE_DARTS - stat.getFirstNineDarts(),
-                doubleOut(match.getGametype().getGametype()));
+        boolean cricket = Constants.GAMETYPE_CRICKET.equals(match.getGametype().getGametype());
+        CricketRules.Result cricketResult = cricket ? CricketRules.evaluate(cricketPlayer(stat),
+                leg.getPlayerStats().stream().filter(other -> other != stat)
+                        .map(this::cricketPlayer).toList(), request.score()) : null;
+        CountdownRules.Result result = cricket
+                ? new CountdownRules.Result(cricketResult.points(), cricketResult.scored(),
+                        cricketResult.triples(), cricketResult.bullseyes(), cricketResult.won(),
+                        false, cricketResult.dartsThrown(), 0, 0, cricketResult.boardHits())
+                : CountdownRules.evaluate(stat.getPoints(), request.score(),
+                        Constants.FIRST_NINE_DARTS - stat.getFirstNineDarts(),
+                        doubleOut(match.getGametype().getGametype()));
         PlayedRound round = new PlayedRound();
         round.setMatch(match);
         round.setPlayerStat(stat);
         round.getBoardHits().putAll(result.boardHits());
         RoundSnapshot snapshot = new RoundSnapshot();
         BeanUtils.copyProperties(stat, snapshot);
+        snapshot.setCricketMarks(CricketMarks.from(stat.getCricketMarks().asMap()));
         round.setBeforeRound(snapshot);
         match.getRounds().add(round);
-        LegScoringStatistics.record(stat, result);
+        if (cricket) {
+            stat.setCricketMarks(CricketMarks.from(cricketResult.marks()));
+            stat.setDartsThrown(stat.getDartsThrown() + result.dartsThrown());
+        } else {
+            LegScoringStatistics.record(stat, result);
+        }
         stat.setTurn(stat.getTurn() + 1);
         stat.setPoints(result.remaining());
         stat.setTriple20s(stat.getTriple20s() + result.triples());
         stat.setBullseyes(stat.getBullseyes() + result.bullseyes());
         stat.setHighestScore(Math.max(stat.getHighestScore(), result.scored()));
         if (result.won()) {
-            stat.setHighestCheckout(Math.max(stat.getHighestCheckout(), result.scored()));
+            if (!cricket) {
+                stat.setHighestCheckout(Math.max(stat.getHighestCheckout(), result.scored()));
+            }
             complete(match, leg, stat);
         }
         advanceRevision(match);
@@ -247,6 +264,7 @@ public class MatchService {
         match.setWinnerGuestName(null);
         match.setFinishedAt(null);
         BeanUtils.copyProperties(round.getBeforeRound(), stat);
+        stat.setCricketMarks(CricketMarks.from(round.getBeforeRound().getCricketMarks().asMap()));
         advanceRevision(match);
         matches.saveAndFlush(match);
         if (completed) {
@@ -430,7 +448,9 @@ public class MatchService {
                 .map(s -> new MatchResponse.Player(playerName(s), s.getPosition(),
                         s.getPoints(), s.getTurn(), s.getBullseyes(), s.getTriple20s(),
                         s.getHighestScore(), s.getHighestCheckout(),
-                        legsWon(match, playerName(s)), scoringStats(s), s.getUser() == null))
+                        legsWon(match, playerName(s)), scoringStats(s), s.getUser() == null,
+                        Constants.GAMETYPE_CRICKET.equals(match.getGametype().getGametype())
+                                ? s.getCricketMarks().asMap() : null))
                 .toList();
     }
 
@@ -449,6 +469,10 @@ public class MatchService {
 
     private String playerName(final LegPlayerStat stat) {
         return winnerName(stat.getUser(), stat.getGuestName());
+    }
+
+    private CricketRules.Player cricketPlayer(final LegPlayerStat stat) {
+        return new CricketRules.Player(stat.getPoints(), stat.getCricketMarks().asMap());
     }
 
     private String winnerName(final User user, final String guestName) {

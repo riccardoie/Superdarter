@@ -6,7 +6,7 @@ import {
   MAX_TOTAL_PLAYERS,
 } from '../api';
 import {
-  countdownModes,
+  playableModes,
   gameFriendSuggestions,
   playerNameError,
 } from '../gameSetup';
@@ -52,7 +52,7 @@ export default function CreateGame({ onClose, onContinue }) {
   useEffect(() => {
     getAllGamemodes()
       .then((data) => {
-        const modes = countdownModes(data);
+        const modes = playableModes(data);
         setAvailable(modes);
         setGametype(
           modes.find((mode) => mode.gamemode === '501')?.gamemode ??

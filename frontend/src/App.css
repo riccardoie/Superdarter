@@ -1818,10 +1818,10 @@
 
 .game-dart-slots {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
   width: 100%;
   max-width: 540px;
-  padding: var(--space-3);
+  padding: var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
@@ -1835,7 +1835,7 @@
 }
 
 .game-dart-slot + .game-dart-slot {
-  padding-top: var(--space-2);
+  padding-top: var(--space-1);
   border-top: 1px solid var(--color-border);
 }
 
@@ -1852,14 +1852,26 @@
 .game-dart-slot label,
 .game-multiplier-field {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--space-1);
   font-size: 0.85rem;
   color: var(--color-text-muted);
 }
 
+.game-multiplier-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .game-multiplier-options {
   display: flex;
+  width: 100%;
   min-height: 44px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
@@ -1896,7 +1908,7 @@
   width: 100%;
   min-width: 0;
   min-height: 44px;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: var(--color-bg);
@@ -2218,6 +2230,89 @@
 .game-stats-winner td:first-child {
   border-left: 4px solid var(--color-success);
   color: var(--color-success);
+  font-weight: 700;
+}
+
+/* ===== Cricket ===== */
+.cricket-scoreboard {
+  margin-block: var(--space-2);
+}
+
+.cricket-scoreboard .dashboard-section-heading {
+  margin-bottom: var(--space-2);
+}
+
+.cricket-scoreboard h2 small {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.cricket-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.cricket-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.cricket-target-column {
+  width: 56px;
+}
+
+.cricket-table th,
+.cricket-table td {
+  padding: var(--space-1);
+  height: 32px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cricket-table thead th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.cricket-table tbody th {
+  font-size: 0.75rem;
+}
+
+.cricket-table tbody td {
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cricket-table th:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--color-surface);
+  z-index: 1;
+}
+
+.cricket-current {
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+}
+
+.cricket-target-closed {
+  color: var(--color-text-muted);
+}
+
+.cricket-target-closed small {
+  display: block;
+  font-size: 0.55rem;
+  line-height: 1.1;
+  font-weight: 400;
+}
+
+.cricket-points {
   font-weight: 700;
 }
 

@@ -1,6 +1,7 @@
 package lux.dartgame.model;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,6 +28,8 @@ public class LegPlayerStat {
     private String guestName;
     private int position;
     private int points;
+    @Embedded
+    private CricketMarks cricketMarks = new CricketMarks();
     private int turn;
     private int triple20s;
     private int bullseyes;
