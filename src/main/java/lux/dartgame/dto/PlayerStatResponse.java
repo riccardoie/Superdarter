@@ -1,5 +1,7 @@
 package lux.dartgame.dto;
 
+import java.util.Map;
+
 public record PlayerStatResponse(String username,
                                  float avgPoints,
                                  int wonMatches,
@@ -10,5 +12,6 @@ public record PlayerStatResponse(String username,
                                  int highestCheckout,
                                  int wonLegs,
                                  int playedLegs,
-                                 Long dartsThrown) {
+                                 Long dartsThrown,
+                                 Map<Integer, BoardHitResponse> boardHits) {
 }
