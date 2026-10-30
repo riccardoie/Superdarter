@@ -525,7 +525,7 @@ class GameFlowIT extends AbstractIT {
     void unsupportedModesAndUnknownParticipantsCreateNothing() {
         String token = register("alice");
         assertThat(rest().postForEntity(GAMES_URL, authed(token,
-                new CreateGameRequest("Cricket", List.of())), String.class).getStatusCode())
+                new CreateGameRequest("Killer", List.of())), String.class).getStatusCode())
                 .isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(rest().postForEntity(GAMES_URL, authed(token,
                 new CreateGameRequest("301", List.of(new UserRequest("ghost")))), String.class)

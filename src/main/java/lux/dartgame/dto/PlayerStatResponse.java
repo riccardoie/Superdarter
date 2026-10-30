@@ -13,5 +13,8 @@ public record PlayerStatResponse(String username,
                                  int wonLegs,
                                  int playedLegs,
                                  Long dartsThrown,
-                                 Map<Integer, BoardHitResponse> boardHits) {
+                                 Map<Integer, BoardHitResponse> boardHits,
+                                 Float highestLegAverage,
+                                 Float highestGameAverage,
+                                 Float highestFirstNineAverage) {
 }
