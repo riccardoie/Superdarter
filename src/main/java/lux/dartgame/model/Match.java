@@ -46,6 +46,7 @@ public class Match {
     // Checked under a database row lock for every command; prevents stale/replayed rounds.
     private long revision;
     private int legsToWin = 1;
+    private int startingPlayerOffset;
     @OneToMany(mappedBy = "match", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("position ASC")
     private List<MatchParticipant> participants = new ArrayList<>();

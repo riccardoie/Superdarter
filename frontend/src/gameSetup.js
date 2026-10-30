@@ -16,6 +16,14 @@ export function isSingleOut(gametype) {
   return gametype === '301 Single Out' || gametype === '501 Single Out';
 }
 
+export function playableModes(gametypes) {
+  const modes = countdownModes(gametypes);
+  if (gametypes.some(({ gamemode }) => gamemode === 'Cricket')) {
+    modes.push({ gamemode: 'Cricket', finishes: {} });
+  }
+  return modes;
+}
+
 export function playerNameError(
   name,
   { owner, players, guests, maxPlayers, friends }

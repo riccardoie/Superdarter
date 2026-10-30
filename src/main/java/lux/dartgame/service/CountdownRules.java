@@ -16,6 +16,7 @@ public final class CountdownRules {
         return switch (gametype) {
             case Constants.GAMETYPE_301, Constants.GAMETYPE_301_SINGLE_OUT -> Constants.TARGET_301;
             case Constants.GAMETYPE_501, Constants.GAMETYPE_501_SINGLE_OUT -> Constants.TARGET_501;
+            case Constants.GAMETYPE_CRICKET -> 0;
             default -> throw new GameModeNotFoundException(gametype);
         };
     }
@@ -85,7 +86,7 @@ public final class CountdownRules {
                 bust ? Map.of() : Map.copyOf(boardHits));
     }
 
-    private static int[] parse(final String score) {
+    static int[] parse(final String score) {
         if (score == null) {
             throw new InvalidScoreException();
         }

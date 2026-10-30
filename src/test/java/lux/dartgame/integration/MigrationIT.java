@@ -9,6 +9,62 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MigrationIT extends AbstractIT {
     @Test
+    void averageRecordsBackfillKnownHistoryWithoutInventingUnknownOpeningDarts() throws Exception {
+        String schema = "average_records_upgrade_test";
+        try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(),
+                POSTGRES.getUsername(), POSTGRES.getPassword());
+             var sql = connection.createStatement()) {
+            sql.execute("CREATE SCHEMA " + schema);
+            try {
+                Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
+                        POSTGRES.getPassword()).defaultSchema(schema).target("14").load().migrate();
+                sql.execute("SET search_path TO " + schema);
+                sql.execute("INSERT INTO users(user_name,password,email,role_id) "
+                        + "SELECT name,'hash',name || '@test',role_id FROM roles "
+                        + "CROSS JOIN (VALUES ('known'),('legacy')) names(name) WHERE role='USER'");
+                sql.execute("INSERT INTO playerstats(player_id,highest_checkout) SELECT user_id,0 FROM users");
+                sql.execute("INSERT INTO matches(owner_id,gametype_id,status,created_at,winner_id) "
+                        + "SELECT user_id,gametype_id,'COMPLETED',now(),user_id FROM users "
+                        + "CROSS JOIN gametypes WHERE gametype IN ('301','Cricket')");
+                sql.execute("INSERT INTO legs(match_id,leg_number,status,winner_id) "
+                        + "SELECT match_id,1,'COMPLETED',owner_id FROM matches");
+                sql.execute("INSERT INTO legs(match_id,leg_number,status,winner_id) "
+                        + "SELECT match_id,2,'COMPLETED',owner_id FROM matches m JOIN users u "
+                        + "ON u.user_id=m.owner_id JOIN gametypes g USING(gametype_id) "
+                        + "WHERE u.user_name='known' AND g.gametype='301'");
+                sql.execute("INSERT INTO leg_player_stats(leg_id,user_id,position,points,turn,"
+                        + "scoring_stats_available,first_nine_points,first_nine_darts) "
+                        + "SELECT l.leg_id,m.owner_id,0,0,"
+                        + "CASE WHEN u.user_name='known' AND l.leg_number=1 THEN 2 ELSE 3 END,"
+                        + "u.user_name='known',301,"
+                        + "CASE WHEN u.user_name='known' AND l.leg_number=1 THEN 6 ELSE 7 END "
+                        + "FROM legs l JOIN matches m USING(match_id) JOIN users u ON u.user_id=m.owner_id");
+                var migration = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(),
+                        POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema).load();
+                assertThat(migration.migrate().migrationsExecuted).isEqualTo(1);
+                assertThat(migration.migrate().migrationsExecuted).isZero();
+                try (var rows = sql.executeQuery("SELECT u.user_name,p.highest_leg_average,"
+                        + "p.highest_game_average,p.highest_first_nine_average FROM playerstats p "
+                        + "JOIN users u ON u.user_id=p.player_id ORDER BY u.user_name")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString(1)).isEqualTo("known");
+                    assertThat(rows.getFloat(2)).isEqualTo(150.5f);
+                    assertThat(rows.getFloat(3)).isCloseTo(120.4f,
+                            org.assertj.core.api.Assertions.within(0.001f));
+                    assertThat(rows.getFloat(4)).isEqualTo(150.5f);
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString(1)).isEqualTo("legacy");
+                    assertThat(rows.getFloat(2)).isCloseTo(301f / 3,
+                            org.assertj.core.api.Assertions.within(0.001f));
+                    assertThat(rows.getObject(4)).isNull();
+                }
+            } finally {
+                sql.execute("DROP SCHEMA " + schema + " CASCADE");
+            }
+        }
+    }
+
+    @Test
     void boardHitsMigrationPreservesExistingRoundsWithoutInventingHistoricalHits() throws Exception {
         String schema = "board_hits_upgrade_test";
         try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(),
@@ -40,8 +96,17 @@ class MigrationIT extends AbstractIT {
                         + " FROM leg_player_stats s JOIN legs l USING(leg_id)");
                 var migration = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(),
                         POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema).load();
-                assertThat(migration.migrate().migrationsExecuted).isEqualTo(1);
+                assertThat(migration.migrate().migrationsExecuted).isEqualTo(4);
                 assertThat(migration.migrate().migrationsExecuted).isZero();
+                try (var rows = sql.executeQuery("SELECT cricket15,cricket25 FROM played_rounds")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isZero();
+                    assertThat(rows.getInt(2)).isZero();
+                }
+                try (var rows = sql.executeQuery("SELECT starting_player_offset FROM matches")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isZero();
+                }
                 try (var rows = sql.executeQuery("SELECT points,turn FROM played_rounds")) {
                     assertThat(rows.next()).isTrue();
                     assertThat(rows.getInt(1)).isEqualTo(241);

@@ -264,15 +264,42 @@ test('comparison displays every statistic in the requested player order, not ser
     createElement(ProfileComparison, {
       usernames: ['bob', 'alice'],
       stats: [
-        { username: 'alice', playedMatches: 8, avgPoints: 45.5 },
-        { username: 'bob', playedMatches: 3, avgPoints: 60 },
+        {
+          username: 'alice',
+          playedMatches: 8,
+          avgPoints: 45.5,
+          highestLegAverage: 100.5,
+          highestGameAverage: 90.25,
+          highestFirstNineAverage: 120,
+        },
+        {
+          username: 'bob',
+          playedMatches: 3,
+          avgPoints: 60,
+          highestLegAverage: 110,
+          highestGameAverage: 95.5,
+          highestFirstNineAverage: 140,
+        },
       ],
     })
   );
   assert.match(html, /<th scope="col">bob<\/th><th scope="col">alice<\/th>/);
   assert.match(html, /Games played<\/th><td>3<\/td><td>8<\/td>/);
   assert.match(html, /Average points<\/th><td>60\.00<\/td><td>45\.50<\/td>/);
-  assert.equal([...html.matchAll(/scope="row"/g)].length, 10);
+  assert.match(
+    html,
+    /Highest leg average<\/th><td>110\.00<\/td><td>100\.50<\/td>/
+  );
+  assert.match(
+    html,
+    /Highest game average<\/th><td>95\.50<\/td><td>90\.25<\/td>/
+  );
+  assert.match(
+    html,
+    /Highest first 9 average<\/th><td>140\.00<\/td><td>120\.00<\/td>/
+  );
+  assert.equal([...html.matchAll(/scope="row"/g)].length, 11);
+  assert.doesNotMatch(html, /Triple 20s|Bullseyes/);
 });
 
 test('comparison handles a player with no statistics without shifting the other player into their column', () => {

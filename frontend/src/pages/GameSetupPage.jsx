@@ -20,6 +20,7 @@ export default function GameSetupPage() {
   if (!draft) return <Navigate to="/games" replace />;
 
   const owner = getUsername(localStorage.getItem('token'));
+  const cricket = draft.gametype === 'Cricket';
 
   async function handleStart(event) {
     event.preventDefault();
@@ -30,7 +31,7 @@ export default function GameSetupPage() {
     try {
       const game = await startDraftGame(
         {
-          gametype: draft.finishes[finish],
+          gametype: cricket ? 'Cricket' : draft.finishes[finish],
           players: draft.players,
           guests: draft.guests ?? [],
           legsToWin: Number(legsToWin),
@@ -115,28 +116,32 @@ export default function GameSetupPage() {
           Choose 1 for a single leg, or 2–99 for a first-to-wins game. Starting
           player rotates each leg.
         </p>
-        <fieldset
-          className="game-finish-picker"
-          disabled={submitting || Boolean(pendingGame)}
-        >
-          <legend>Finishing rule</legend>
-          {Object.keys(draft.finishes).map((rule) => (
-            <label key={rule}>
-              <input
-                type="radio"
-                name="finish"
-                value={rule}
-                checked={finish === rule}
-                onChange={(event) => setFinish(event.target.value)}
-              />
-              {rule === 'single' ? 'Single out' : 'Double out'}
-            </label>
-          ))}
-        </fieldset>
+        {!cricket && (
+          <fieldset
+            className="game-finish-picker"
+            disabled={submitting || Boolean(pendingGame)}
+          >
+            <legend>Finishing rule</legend>
+            {Object.keys(draft.finishes).map((rule) => (
+              <label key={rule}>
+                <input
+                  type="radio"
+                  name="finish"
+                  value={rule}
+                  checked={finish === rule}
+                  onChange={(event) => setFinish(event.target.value)}
+                />
+                {rule === 'single' ? 'Single out' : 'Double out'}
+              </label>
+            ))}
+          </fieldset>
+        )}
         <p className="player-hint">
-          {finish === 'single'
-            ? 'Reach exactly zero with any dart.'
-            : 'Reach exactly zero with a double.'}
+          {cricket
+            ? 'Close 15–20 and bull with three marks each. Score on closed targets while an opponent has them open. Close everything and have the highest score (ties count) to win.'
+            : finish === 'single'
+              ? 'Reach exactly zero with any dart.'
+              : 'Reach exactly zero with a double.'}
         </p>
         <p className="game-shared-hint">
           {pendingGame
