@@ -15,7 +15,7 @@ short-leg denominator when a player finishes with fewer than nine darts.
 
 Both winners and losers qualify. Completed legs in retained abandoned or ongoing
 games can set leg and opening records, but only completed games set game records.
-Unfinished legs, players who have not thrown a turn, guests, cricket and Mikke Mus do not
+Unfinished legs, players who have not thrown a turn, guests, cricket, Mikke Mus and Around the Clock do not
 create these profile records. Zero averages are valid when actual turns/darts
 were recorded. A missing qualifying record is null and displays as “Not
 available”, rather than inventing a zero or historical dart count.

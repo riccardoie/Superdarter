@@ -2,6 +2,7 @@ import { useState } from 'react';
 import GameStatsTable from './GameStatsTable';
 import CricketScoreboard from './CricketScoreboard';
 import MikkeScoreboard from './MikkeScoreboard';
+import AroundClockScoreboard from './AroundClockScoreboard';
 import { isMikkeMus } from '../gameSetup';
 
 export default function CompletedLegs({ game }) {
@@ -26,7 +27,13 @@ export default function CompletedLegs({ game }) {
             <h2>
               Leg {leg.number} — {leg.winner} wins
             </h2>
-            {isMikkeMus(game.gametype) ? (
+            {game.gametype === 'Around the Clock' ? (
+              <AroundClockScoreboard
+                game={{ ...game, turn: null }}
+                players={leg.players}
+                showHeading={false}
+              />
+            ) : isMikkeMus(game.gametype) ? (
               <MikkeScoreboard
                 game={{ ...game, turn: null, mikkeMus: null }}
                 players={leg.players}

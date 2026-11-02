@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 import lux.dartgame.exception.GameConflictException;
 import lux.dartgame.exception.InvalidScoreException;
-import lux.dartgame.model.MikkeMusState;
+import lux.dartgame.model.TargetGameState;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -196,7 +196,7 @@ class MikkeMusRulesTest {
                 .isInstanceOf(InvalidScoreException.class);
     }
 
-    private MikkeMusState tie() {
+    private TargetGameState tie() {
         var state = MikkeMusRules.initial(2);
         closeExceptBull(state, 0, 2);
         closeExceptBull(state, 1, 2);
@@ -204,7 +204,7 @@ class MikkeMusRulesTest {
         return MikkeMusRules.play(state, "25 1", null, false).state();
     }
 
-    private void closeExceptBull(final MikkeMusState state, final int position, final int bull) {
+    private void closeExceptBull(final TargetGameState state, final int position, final int bull) {
         state.getMarks().get(position).replaceAll((target, marks) -> 3);
         state.getMarks().get(position).put("B", bull);
     }

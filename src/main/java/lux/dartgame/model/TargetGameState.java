@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Map;
 import lombok.Data;
 
-/** Persisted per leg; player positions are the stable throw order within that leg. */
+/** Target progress and equal-round resolution; positions are the stable leg throw order. */
 @Data
-public class MikkeMusState {
+public class TargetGameState {
     private String phase = "PLAY";
     private int currentPosition;
     private Map<Integer, Map<String, Integer>> marks = new LinkedHashMap<>();
@@ -22,8 +22,8 @@ public class MikkeMusState {
     public record BullThrow(int position, int region, int attempt) {
     }
 
-    public MikkeMusState copy() {
-        MikkeMusState copy = new MikkeMusState();
+    public TargetGameState copy() {
+        TargetGameState copy = new TargetGameState();
         copy.phase = phase;
         copy.currentPosition = currentPosition;
         marks.forEach((position, hits) -> copy.marks.put(position, new LinkedHashMap<>(hits)));

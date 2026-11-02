@@ -2057,9 +2057,11 @@
   border-radius: var(--radius);
 }
 
-.game-round-total {
+.game-round-total,
+.game-text-controls .game-round-remaining {
   font-size: 1.15rem;
   font-weight: 600;
+  color: var(--color-text);
 }
 
 .game-register:disabled {
@@ -2233,6 +2235,54 @@
 }
 
 /* ===== Cricket ===== */
+.game-round-remaining {
+  min-height: 1.4em;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.game-round-summary {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: max-content max-content;
+  column-gap: 0.5ch;
+}
+
+.game-board-controls .game-round-summary {
+  grid-column: 1;
+  align-self: center;
+}
+
+.game-round-summary .game-round-total,
+.game-round-summary .game-round-remaining {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  text-align: left;
+}
+
+.game-board-controls .game-round-remaining {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.game-round-summary .game-round-remaining > span {
+  display: contents;
+}
+
+.game-round-summary .game-round-total > span:last-child,
+.game-round-summary .game-round-remaining strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-round-remaining strong {
+  color: var(--color-text);
+  font-weight: inherit;
+}
+
 .mikke-redemption-notice {
   position: fixed;
   inset: 0;

@@ -21,6 +21,9 @@ export function playableModes(gametypes) {
   if (gametypes.some(({ gamemode }) => gamemode === 'Cricket')) {
     modes.push({ gamemode: 'Cricket', finishes: {} });
   }
+  if (gametypes.some(({ gamemode }) => gamemode === 'Around the Clock')) {
+    modes.push({ gamemode: 'Around the Clock', finishes: {} });
+  }
   const variants = {};
   for (const variant of ['Forced', 'Relaxed']) {
     const type = `Mikke Mus ${variant}`;
