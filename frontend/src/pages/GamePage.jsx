@@ -22,6 +22,7 @@ import CricketScoreboard from '../components/CricketScoreboard';
 import { cricketRoundPreview } from '../cricket';
 import MikkeScoreboard from '../components/MikkeScoreboard';
 import AroundClockScoreboard from '../components/AroundClockScoreboard';
+import CountdownRemainingPreview from '../components/CountdownRemainingPreview';
 import MikkeRedemptionNotice from '../components/MikkeRedemptionNotice';
 import GameBoardHits from '../components/GameBoardHits';
 import MikkeBullOff from '../components/MikkeBullOff';
@@ -201,7 +202,7 @@ export default function GamePage() {
       setGame(await undoRound({ gameId, revision: game.revision }));
       setSlots(emptySlots());
       setActiveDart(0);
-      setLegNotice('Previous round undone. Enter the corrected throws.');
+      setLegNotice('');
     } catch (err) {
       if (err.status === 403 || err.status === 409) {
         try {
@@ -676,8 +677,14 @@ export default function GamePage() {
               </div>
             )}
             {!mikke && !clock && (
-              <div className="game-round-total">
-                {cricket ? 'Round points' : 'Round total'}: {roundTotal}
+              <div className="game-round-summary">
+                <div className="game-round-total">
+                  <span>{cricket ? 'Round points' : 'Round total'}:</span>{' '}
+                  <span>{roundTotal}</span>
+                </div>
+                {!cricket && !submitting && (
+                  <CountdownRemainingPreview game={game} slots={slots} />
+                )}
               </div>
             )}
             <div className="game-round-actions">
