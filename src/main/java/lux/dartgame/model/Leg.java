@@ -27,7 +27,9 @@ import org.hibernate.type.SqlTypes;
 @Setter
 public class Leg {
     @JdbcTypeCode(SqlTypes.JSON)
-    private MikkeMusState mikkeState;
+    private TargetGameState mikkeState;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private TargetGameState clockState;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long legId;

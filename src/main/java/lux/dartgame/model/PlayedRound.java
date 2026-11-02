@@ -24,7 +24,9 @@ import org.hibernate.type.SqlTypes;
 @Setter
 public class PlayedRound {
     @JdbcTypeCode(SqlTypes.JSON)
-    private MikkeMusState beforeMikkeState;
+    private TargetGameState beforeMikkeState;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private TargetGameState beforeClockState;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long roundId;

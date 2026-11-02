@@ -1,8 +1,9 @@
 export default function MikkeRedemptionNotice({ game }) {
-  const tiebreaker = game.mikkeMus?.phase === 'BULL_OFF';
+  const state = game.aroundClock ?? game.mikkeMus;
+  const tiebreaker = state?.phase === 'BULL_OFF';
   if (
     game.status !== 'IN_PROGRESS' ||
-    (!tiebreaker && game.mikkeMus?.phase !== 'REDEMPTION')
+    (!tiebreaker && state?.phase !== 'REDEMPTION')
   )
     return null;
   return (

@@ -22,7 +22,7 @@ import static org.mockito.Mockito.times;
 class GuestPlayersIT extends AbstractIT {
     @ParameterizedTest
     @ValueSource(strings = {"301", "501", "301 Single Out", "501 Single Out",
-        "Cricket", "Mikke Mus Forced", "Mikke Mus Relaxed"})
+        "Cricket", "Mikke Mus Forced", "Mikke Mus Relaxed", "Around the Clock"})
     void everyModeAllowsFourPlayersButRejectsFive(final String mode) {
         String token = register("alice");
         register("bob");
