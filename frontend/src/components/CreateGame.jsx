@@ -91,7 +91,13 @@ export default function CreateGame({ onClose, onContinue }) {
     e.preventDefault();
     const mode = available?.find((mode) => mode.gamemode === gametype);
     if (mode)
-      onContinue({ gametype, players, guests, finishes: mode.finishes });
+      onContinue({
+        gametype,
+        players,
+        guests,
+        finishes: mode.finishes,
+        ...(mode.variants ? { variants: mode.variants } : {}),
+      });
   }
 
   return (

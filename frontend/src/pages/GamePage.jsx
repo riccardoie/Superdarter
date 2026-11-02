@@ -8,6 +8,7 @@ import {
   rematchGame,
   startGame,
   undoRound,
+  resolveBullOff,
 } from '../api';
 import DartboardInput from '../components/DartboardInput';
 import { canSubmitRound, dartInputError, serializeRound } from '../dartRound';
@@ -19,6 +20,17 @@ import { matchStats } from '../gameStats';
 import { isMatchWinningRound } from '../gameCompletion';
 import CricketScoreboard from '../components/CricketScoreboard';
 import { cricketRoundPreview } from '../cricket';
+import MikkeScoreboard from '../components/MikkeScoreboard';
+import MikkeRedemptionNotice from '../components/MikkeRedemptionNotice';
+import GameBoardHits from '../components/GameBoardHits';
+import MikkeBullOff from '../components/MikkeBullOff';
+import MikkeAllocationDialog from '../components/MikkeAllocationDialog';
+import {
+  needsAllocation,
+  allocationChoices,
+  pendingAllocationIndex,
+  resolveMikkeAllocations,
+} from '../mikkeAllocation';
 
 function emptySlots() {
   return [
@@ -35,12 +47,13 @@ export default function GamePage() {
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [slots, setSlots] = useState(emptySlots);
+  const [enteredSlots, setSlots] = useState(emptySlots);
   const [inputMode, setInputMode] = useState('select');
   const [activeDart, setActiveDart] = useState(0);
   const [managementAction, setManagementAction] = useState(null);
   const [legNotice, setLegNotice] = useState('');
   const [confirmFinish, setConfirmFinish] = useState(false);
+  const [allocationPrompt, setAllocationPrompt] = useState(null);
   const rematchBusy = useRef(false);
 
   useEffect(() => {
@@ -53,6 +66,7 @@ export default function GamePage() {
     setActionError('');
     setLegNotice('');
     setConfirmFinish(false);
+    setAllocationPrompt(null);
     getGameState({ gameId })
       .then((data) => {
         if (!cancelled) setGame(data);
@@ -92,6 +106,10 @@ export default function GamePage() {
     inputMode === 'board';
   const activePlayer = game.turn;
   const cricket = game.gametype === 'Cricket';
+  const mikke = Boolean(game.mikkeMus);
+  const slots = mikke
+    ? resolveMikkeAllocations(game, enteredSlots)
+    : enteredSlots;
   const roundTotal = cricket
     ? (cricketRoundPreview(game, slots)?.scored ?? 0)
     : slots.reduce((sum, slot) => {
@@ -104,29 +122,76 @@ export default function GamePage() {
   const canSubmit = canSubmitRound(slots);
 
   function updateSlot(index, field, value) {
-    setSlots((prev) => {
-      const next = prev.map((slot, i) =>
-        i === index ? { ...slot, [field]: value } : slot
-      );
-      if (field === 'value' && (Number(value) === 0 || Number(value) === 25)) {
-        next[index].multiplier = 1;
-      }
-      return next;
-    });
+    if (submitting || allocationPrompt) return;
+    const next = slots.map((slot, i) =>
+      i === index ? { ...slot, [field]: value } : slot
+    );
+    if (field === 'value' && (Number(value) === 0 || Number(value) === 25)) {
+      next[index].multiplier = 1;
+    }
+    if (field === 'value' || field === 'multiplier') {
+      delete next[index].automaticAllocation;
+      next[index].allocation =
+        mikke && needsAllocation(next[index])
+          ? null
+          : Number(next[index].value) === 25
+            ? 'BULL'
+            : 'NUMBER';
+    }
+    setSlots(next);
+    if (
+      mikke &&
+      field === 'multiplier' &&
+      needsAllocation(resolveMikkeAllocations(game, next)[index])
+    )
+      setAllocationPrompt({ index });
   }
 
   function recordBoardHit(value, multiplier) {
-    if (submitting) return;
+    if (submitting || allocationPrompt) return;
+    const hit = {
+      value,
+      multiplier,
+      allocation:
+        mikke && needsAllocation({ value, multiplier })
+          ? null
+          : value === 25
+            ? 'BULL'
+            : 'NUMBER',
+    };
     setSlots((prev) =>
       prev.map((slot, index) =>
-        index === activeDart ? { ...slot, value, multiplier } : slot
+        index === activeDart
+          ? {
+              ...hit,
+            }
+          : slot
       )
     );
-    setActiveDart((activeDart + 1) % slots.length);
+    if (
+      mikke &&
+      needsAllocation(
+        resolveMikkeAllocations(
+          game,
+          slots.map((slot, index) => (index === activeDart ? hit : slot))
+        )[activeDart]
+      )
+    )
+      setAllocationPrompt({ index: activeDart, advance: true });
+    else setActiveDart((activeDart + 1) % slots.length);
+  }
+
+  function chooseAllocation(allocation) {
+    const { index, advance } = allocationPrompt;
+    setSlots((previous) =>
+      previous.map((slot, i) => (i === index ? { ...slot, allocation } : slot))
+    );
+    setAllocationPrompt(null);
+    if (advance) setActiveDart((index + 1) % slots.length);
   }
 
   async function handleUndo() {
-    if (submitting || !game.permissions.canUndo) return;
+    if (submitting || allocationPrompt || !game.permissions.canUndo) return;
     setSubmitting(true);
     setActionError('');
     try {
@@ -153,7 +218,12 @@ export default function GamePage() {
   }
 
   function handleSubmit() {
-    if (!canSubmit || submitting) return;
+    if (!canSubmit || submitting || allocationPrompt) return;
+    const unresolved = mikke ? pendingAllocationIndex(slots) : -1;
+    if (unresolved >= 0) {
+      setAllocationPrompt({ index: unresolved });
+      return;
+    }
     setActionError('');
     if (isMatchWinningRound(game, slots)) {
       setConfirmFinish(true);
@@ -163,7 +233,13 @@ export default function GamePage() {
   }
 
   async function submitRound() {
-    if (!canSubmit || submitting) return;
+    if (
+      !canSubmit ||
+      submitting ||
+      allocationPrompt ||
+      (mikke && pendingAllocationIndex(slots) >= 0)
+    )
+      return;
     setSubmitting(true);
     setActionError('');
     try {
@@ -174,6 +250,15 @@ export default function GamePage() {
         score,
         legId: game.currentLegId,
         revision: game.revision,
+        ...(mikke
+          ? {
+              allocations: slots.map(
+                (slot) =>
+                  slot.allocation ??
+                  (Number(slot.value) === 25 ? 'BULL' : 'NUMBER')
+              ),
+            }
+          : {}),
       });
       if (fresh.currentLegId !== game.currentLegId) {
         const completed = fresh.legs.find(
@@ -218,6 +303,48 @@ export default function GamePage() {
       setGame(await startGame({ gameId }));
     } catch (err) {
       setActionError(`Failed to start game: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleBullOff(region, winner, rethrow) {
+    if (submitting || !game.permissions.canScore) return;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      const fresh =
+        region != null
+          ? await playRound({
+              gameId,
+              username: game.turn,
+              legId: game.currentLegId,
+              revision: game.revision,
+              score: region === 0 ? '0 1' : `25 ${region}`,
+            })
+          : await resolveBullOff({
+              gameId,
+              legId: game.currentLegId,
+              revision: game.revision,
+              winner,
+              rethrow,
+            });
+      setGame(fresh);
+      setSlots(emptySlots());
+      setActiveDart(0);
+      if (fresh.currentLegId !== game.currentLegId)
+        setLegNotice('Leg complete. The next leg is ready.');
+    } catch (err) {
+      if ([403, 409].includes(err.status)) {
+        try {
+          setGame(await getGameState({ gameId }));
+          setSlots(emptySlots());
+        } catch {
+          setActionError('Unable to reload game. Refresh before continuing.');
+          return;
+        }
+      }
+      setActionError(`Failed to save bull-off: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -305,7 +432,19 @@ export default function GamePage() {
         </p>
       )}
 
-      {cricket ? (
+      {mikke ? (
+        <>
+          <MikkeRedemptionNotice
+            key={`${game.currentLegId}-${game.mikkeMus.phase}-${game.mikkeMus.phase === 'BULL_OFF' ? game.mikkeMus.bullAttempt : game.turn}`}
+            game={game}
+          />
+          <MikkeScoreboard
+            showStats={false}
+            game={game}
+            detailPlayers={finished ? matchStats(game) : game.players}
+          />
+        </>
+      ) : cricket ? (
         <CricketScoreboard
           game={game}
           detailPlayers={finished ? matchStats(game) : game.players}
@@ -327,7 +466,7 @@ export default function GamePage() {
                 : 'History saved. Completed legs count towards player totals; the unfinished leg does not.'}
             </p>
           </div>
-          {!cricket && (
+          {!cricket && !mikke && (
             <div className="game-stats-section">
               <h2>
                 {game.legsToWin > 1 ? 'Match stats — all legs' : 'Game stats'}
@@ -364,6 +503,15 @@ export default function GamePage() {
             </button>
           )}
         </div>
+      ) : mikke &&
+        ['BULL_OFF', 'BULL_DECISION'].includes(game.mikkeMus.phase) ? (
+        <MikkeBullOff
+          game={game}
+          busy={submitting}
+          onUndo={handleUndo}
+          onThrow={(region) => handleBullOff(region)}
+          onDecision={(winner, rethrow) => handleBullOff(null, winner, rethrow)}
+        />
       ) : game.permissions.canScore ? (
         <div className="game-round-panel">
           <div
@@ -400,6 +548,10 @@ export default function GamePage() {
                       pattern="([1-9]|1[0-9]|20|25)"
                       placeholder="1–20 or 25"
                       value={slot.value}
+                      onBlur={() => {
+                        if (mikke && needsAllocation(slot) && !slot.allocation)
+                          setAllocationPrompt({ index });
+                      }}
                       onChange={(e) => {
                         if (e.target.value !== '0') {
                           updateSlot(index, 'value', e.target.value);
@@ -466,6 +618,28 @@ export default function GamePage() {
               <DartboardInput onHit={recordBoardHit} disabled={submitting} />
             </div>
           )}
+          {mikke && (
+            <div className="mikke-allocations">
+              {slots.map(
+                (slot, index) =>
+                  slot.value !== '' &&
+                  needsAllocation(slot) && (
+                    <button
+                      type="button"
+                      className="btn"
+                      key={index}
+                      disabled={submitting}
+                      onClick={() => setAllocationPrompt({ index })}
+                    >
+                      Dart {index + 1}:{' '}
+                      {allocationChoices(slot).find(
+                        (choice) => choice.value === slot.allocation
+                      )?.label ?? 'Choose how it counts'}
+                    </button>
+                  )
+              )}
+            </div>
+          )}
           <div
             className={
               boardFocus ? 'game-board-controls' : 'game-text-controls'
@@ -494,9 +668,11 @@ export default function GamePage() {
                 ))}
               </div>
             )}
-            <div className="game-round-total">
-              {cricket ? 'Round points' : 'Round total'}: {roundTotal}
-            </div>
+            {!mikke && (
+              <div className="game-round-total">
+                {cricket ? 'Round points' : 'Round total'}: {roundTotal}
+              </div>
+            )}
             <div className="game-round-actions">
               <button
                 type="button"
@@ -522,7 +698,18 @@ export default function GamePage() {
           This game is in progress. Only participants can score.
         </p>
       )}
+      {mikke && (
+        <GameBoardHits players={finished ? matchStats(game) : game.players} />
+      )}
       <CompletedLegs game={game} />
+      {allocationPrompt && (
+        <MikkeAllocationDialog
+          slot={slots[allocationPrompt.index]}
+          index={allocationPrompt.index}
+          onChoose={chooseAllocation}
+          onCancel={() => setAllocationPrompt(null)}
+        />
+      )}
       {finished && game.permissions.canRematch && (
         <div className="game-round-panel">
           <button
@@ -537,9 +724,13 @@ export default function GamePage() {
       )}
       {confirmFinish && (
         <ConfirmDialog
-          title="Was the game completed?"
-          body={`These throws give ${activePlayer} the match win. Confirm the final round, or go back to correct the throws.`}
-          confirmLabel="Yes, finish game"
+          title={mikke ? 'Has the player finished?' : 'Was the game completed?'}
+          body={
+            mikke
+              ? `These throws close all targets for ${activePlayer}. Confirm the finish, or go back to correct the throws. Eligible players still get redemption; tied finishers throw for bull.`
+              : `These throws give ${activePlayer} the match win. Confirm the final round, or go back to correct the throws.`
+          }
+          confirmLabel={mikke ? 'Yes, confirm finish' : 'Yes, finish game'}
           cancelLabel="No, correct throws"
           confirmClassName="btn btn-primary"
           busyLabel="Finishing…"

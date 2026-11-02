@@ -4,7 +4,7 @@ import java.util.Arrays;
 
 public final class Constants {
     public static final int SECONDS_PER_MINUTE = 60;
-    public static final int MAX_NR_OF_PLAYERS = 10;
+    public static final int MAX_NR_OF_PLAYERS = 4;
     public static final int MAX_PLAYER_NAME_LENGTH = 255;
     public static final int MAX_FRIEND_SUGGESTIONS = 3;
     public static final int MIN_LENGTH_PWD = 8;
@@ -24,11 +24,19 @@ public final class Constants {
     public static final String GAMETYPE_301_SINGLE_OUT = "301 Single Out";
     public static final String GAMETYPE_501_SINGLE_OUT = "501 Single Out";
     public static final String GAMETYPE_CRICKET = "Cricket";
+    public static final String GAMETYPE_MIKKE_FORCED = "Mikke Mus Forced";
+    public static final String GAMETYPE_MIKKE_RELAXED = "Mikke Mus Relaxed";
 
     private static final int[] IMPOSSIBLE_SCORES =
             {163, 166, 169, 172, 173, 175, 176, 178, 179};
 
     private Constants() {
+    }
+
+    public static boolean isCountdown(final String gametype) {
+        return GAMETYPE_301.equals(gametype) || GAMETYPE_501.equals(gametype)
+                || GAMETYPE_301_SINGLE_OUT.equals(gametype)
+                || GAMETYPE_501_SINGLE_OUT.equals(gametype);
     }
 
     public static boolean isImpossibleScore(final int score) {

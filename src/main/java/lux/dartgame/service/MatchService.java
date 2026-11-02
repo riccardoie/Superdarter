@@ -16,6 +16,7 @@ import lux.dartgame.dto.CreateGameRequest;
 import lux.dartgame.dto.FriendResponse;
 import lux.dartgame.dto.MatchResponse;
 import lux.dartgame.dto.BoardHitResponse;
+import lux.dartgame.dto.BullOffDecisionRequest;
 import lux.dartgame.dto.PlayedRoundRequest;
 import lux.dartgame.dto.UserRequest;
 import lux.dartgame.dto.UndoRoundRequest;
@@ -79,7 +80,8 @@ public class MatchService {
             request.players().stream().map(UserRequest::username).forEach(names::add);
         }
         if (names.size() > Constants.MAX_NR_OF_PLAYERS) {
-            throw new IllegalArgumentException("Maximum 10 players including the owner");
+            throw new IllegalArgumentException("Maximum " + Constants.MAX_NR_OF_PLAYERS
+                    + " players including the owner");
         }
         Set<String> accepted = names.size() > 1 ? acceptedFriends(actor) : Set.of();
         for (String name : names) {
@@ -109,7 +111,8 @@ public class MatchService {
             }
         }
         if (match.getParticipants().size() > Constants.MAX_NR_OF_PLAYERS) {
-            throw new IllegalArgumentException("Maximum 10 players including the owner and guests");
+            throw new IllegalArgumentException("Maximum " + Constants.MAX_NR_OF_PLAYERS
+                    + " players including the owner and guests");
         }
         match.setStartingPlayerOffset(starters.choose(match.getParticipants().size()));
         createLeg(match);
@@ -199,6 +202,12 @@ public class MatchService {
         if (!playerName(stat).equals(request.username())) {
             throw new InvalidTurnException();
         }
+        if (leg.getMikkeState() != null) {
+            var result = MikkeMusRules.play(leg.getMikkeState(), request.score(),
+                    request.allocations(), Constants.GAMETYPE_MIKKE_FORCED.equals(
+                            match.getGametype().getGametype()));
+            return applyMikke(match, leg, stat, result, actor);
+        }
         boolean cricket = Constants.GAMETYPE_CRICKET.equals(match.getGametype().getGametype());
         CricketRules.Result cricketResult = cricket ? CricketRules.evaluate(cricketPlayer(stat),
                 leg.getPlayerStats().stream().filter(other -> other != stat)
@@ -269,6 +278,8 @@ public class MatchService {
         match.setFinishedAt(null);
         BeanUtils.copyProperties(round.getBeforeRound(), stat);
         stat.setCricketMarks(CricketMarks.from(round.getBeforeRound().getCricketMarks().asMap()));
+        leg.setMikkeState(round.getBeforeMikkeState() == null ? null
+                : round.getBeforeMikkeState().copy());
         advanceRevision(match);
         matches.saveAndFlush(match);
         if (completed) {
@@ -332,6 +343,57 @@ public class MatchService {
         }
     }
 
+    @Transactional
+    public MatchResponse bullOffDecision(final long id, final BullOffDecisionRequest request,
+                                          final String actor) {
+        Match match = locked(id);
+        requireParticipant(match, actor);
+        Leg leg = currentLeg(match);
+        if (match.getStatus() != MatchStatus.IN_PROGRESS || leg.getMikkeState() == null
+                || request.revision() != match.getRevision() || request.legId() != leg.getLegId()) {
+            throw new GameConflictException(
+                    "Game state changed. Reload before resolving the bull-off");
+        }
+        if (request.rethrow() == (request.winner() != null)) {
+            throw new IllegalArgumentException("Choose either a winner or a rethrow");
+        }
+        LegPlayerStat player = request.rethrow() ? leg.getPlayerStats().getFirst()
+                : leg.getPlayerStats().stream().filter(s -> playerName(s).equals(request.winner()))
+                        .findFirst().orElseThrow(InvalidTurnException::new);
+        var result = MikkeMusRules.decide(leg.getMikkeState(),
+                request.rethrow() ? null : player.getPosition());
+        return applyMikke(match, leg, player, result, actor);
+    }
+
+    private MatchResponse applyMikke(final Match match, final Leg leg, final LegPlayerStat player,
+                                     final MikkeMusRules.Result result, final String actor) {
+        PlayedRound round = new PlayedRound();
+        round.setMatch(match);
+        round.setPlayerStat(player);
+        round.setBeforeMikkeState(leg.getMikkeState().copy());
+        RoundSnapshot snapshot = new RoundSnapshot();
+        BeanUtils.copyProperties(player, snapshot);
+        snapshot.setCricketMarks(CricketMarks.from(player.getCricketMarks().asMap()));
+        round.setBeforeRound(snapshot);
+        round.getBoardHits().putAll(result.hits());
+        match.getRounds().add(round);
+        leg.setMikkeState(result.state());
+        if (result.dartsThrown() > 0) {
+            player.setTurn(player.getTurn() + 1);
+            player.setDartsThrown(player.getDartsThrown() + result.dartsThrown());
+            player.setTriple20s(player.getTriple20s() + result.triples());
+            player.setBullseyes(player.getBullseyes() + result.bulls());
+        }
+        if (result.winner() != null) {
+            var winner = leg.getPlayerStats().stream()
+                    .filter(s -> s.getPosition() == result.winner()).findFirst().orElseThrow();
+            complete(match, leg, winner);
+        }
+        advanceRevision(match);
+        matches.saveAndFlush(match);
+        return response(match, actor);
+    }
+
     private long legsWon(final Match match, final String name) {
         return match.getLegs().stream().filter(l -> l.getStatus() == MatchStatus.COMPLETED
                 && name.equals(winnerName(l.getWinner(), l.getWinnerGuestName()))).count();
@@ -363,6 +425,9 @@ public class MatchService {
             stat.setPoints(startingPoints(match.getGametype().getGametype()));
             leg.getPlayerStats().add(stat);
         }
+        if (MikkeMusRules.supports(match.getGametype().getGametype())) {
+            leg.setMikkeState(MikkeMusRules.initial(participants.size()));
+        }
         match.getLegs().add(leg);
     }
 
@@ -375,6 +440,12 @@ public class MatchService {
     }
 
     private LegPlayerStat next(final Leg leg) {
+        if (leg.getMikkeState() != null) {
+            return leg.getPlayerStats().stream()
+                    .filter(s -> s.getPosition() == leg.getMikkeState().getCurrentPosition())
+                    .findFirst().orElseThrow(() -> new GameConflictException(
+                            "Resolve the bull-off distance decision first"));
+        }
         return leg.getPlayerStats().stream().min(Comparator.comparingInt(LegPlayerStat::getTurn)
                 .thenComparingInt(LegPlayerStat::getPosition)).orElseThrow();
     }
@@ -435,7 +506,9 @@ public class MatchService {
                 startingPoints(match.getGametype().getGametype()), match.getStatus(),
                 match.getCreatedAt(), match.getStartedAt(), match.getFinishedAt(),
                 winnerName(match.getWinner(), match.getWinnerGuestName()),
-                pending || playing ? playerName(next(leg)) : null,
+                (pending || playing) && (leg.getMikkeState() == null
+                        || leg.getMikkeState().getCurrentPosition() >= 0)
+                        ? playerName(next(leg)) : null,
                 match.getRevision(), leg.getLegId(),
                 match.getLegsToWin() == 1 ? "SINGLE_LEG" : "FIRST_TO_LEGS", players, legs,
                 new MatchResponse.Permissions(member && pending, member && playing,
@@ -444,7 +517,8 @@ public class MatchService {
                                 && !match.getRounds().isEmpty(),
                         member && (match.getStatus() == MatchStatus.COMPLETED
                                 || match.getStatus() == MatchStatus.ABANDONED)),
-                match.getLegsToWin());
+                match.getLegsToWin(),
+                leg.getMikkeState() == null ? null : leg.getMikkeState().copy());
     }
 
     private List<MatchResponse.Player> players(final Match match, final Leg leg,
@@ -457,7 +531,9 @@ public class MatchService {
                         legsWon(match, playerName(s)), scoringStats(s), s.getUser() == null,
                         Constants.GAMETYPE_CRICKET.equals(match.getGametype().getGametype())
                                 ? s.getCricketMarks().asMap() : null,
-                        boardHits.getOrDefault(s.getStatId(), emptyBoardHits())))
+                        boardHits.getOrDefault(s.getStatId(), emptyBoardHits()),
+                        leg.getMikkeState() == null ? null
+                                : leg.getMikkeState().getMarks().get(s.getPosition())))
                 .toList();
     }
 

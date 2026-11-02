@@ -428,16 +428,16 @@ class GameFlowIT extends AbstractIT {
     }
 
     @Test
-    void tenPlayersIncludesOwnerAndDuplicateNamesAreNotAddedTwice() {
+    void fourPlayersIncludesOwnerAndDuplicateNamesAreNotAddedTwice() {
         String token = register("alice");
-        List<UserRequest> others = java.util.stream.IntStream.rangeClosed(1, 10)
+        List<UserRequest> others = java.util.stream.IntStream.rangeClosed(1, 4)
                 .mapToObj(i -> {
                     register("player" + i);
                     befriend("alice", "player" + i);
                     return new UserRequest("player" + i);
                 }).toList();
-        MatchResponse game = create(token, "501", others.subList(0, 9));
-        assertThat(game.players()).hasSize(10);
+        MatchResponse game = create(token, "501", others.subList(0, 3));
+        assertThat(game.players()).hasSize(4);
         var tooMany = rest().postForEntity(GAMES_URL,
                 authed(token, new CreateGameRequest("501", others)), String.class);
         assertThat(tooMany.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);

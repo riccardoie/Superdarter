@@ -2233,6 +2233,64 @@
 }
 
 /* ===== Cricket ===== */
+.mikke-redemption-notice {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: mikke-redemption-fade 2.4s ease both;
+}
+
+.mikke-redemption-card {
+  display: grid;
+  gap: var(--space-2);
+  width: min(360px, 90vw);
+  padding: var(--space-5);
+  text-align: center;
+  border-radius: var(--radius);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: 0 12px 40px #0004;
+  animation: mikke-redemption-pop 0.35s ease-out both;
+}
+
+.mikke-redemption-card strong {
+  font-size: clamp(1.8rem, 7vw, 2.8rem);
+}
+
+@keyframes mikke-redemption-pop {
+  from { transform: scale(0.85) translateY(12px); }
+  to { transform: scale(1) translateY(0); }
+}
+
+@keyframes mikke-redemption-fade {
+  0% { opacity: 0; }
+  12%, 80% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mikke-redemption-card { animation: none; }
+}
+
+.mikke-allocations {
+  display: grid;
+  gap: var(--space-2);
+  width: min(540px, 100%);
+}
+
+.mikke-allocations button {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.mikke-bull-history {
+  text-align: left;
+  padding-left: var(--space-5);
+}
+
 .cricket-scoreboard {
   margin-block: var(--space-2);
 }

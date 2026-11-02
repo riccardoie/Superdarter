@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { createGame, deleteGame, getUsername, startGame } from '../api';
 import LegTargetPicker from '../components/LegTargetPicker';
-import { startDraftGame } from '../gameSetup';
+import { startDraftGame, isMikkeMus } from '../gameSetup';
 
 export default function GameSetupPage() {
   const { state } = useLocation();
@@ -13,6 +13,12 @@ export default function GameSetupPage() {
     draft?.finishes?.double ? 'double' : 'single'
   );
   const [pendingGame, setPendingGame] = useState(null);
+  const variants =
+    draft?.variants ??
+    (isMikkeMus(draft?.gametype) && draft.gametype !== 'Mikke Mus'
+      ? { [draft.gametype.replace('Mikke Mus ', '')]: draft.gametype }
+      : { Forced: 'Mikke Mus Forced', Relaxed: 'Mikke Mus Relaxed' });
+  const [variant, setVariant] = useState(Object.keys(variants)[0]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const busy = useRef(false);
@@ -21,6 +27,7 @@ export default function GameSetupPage() {
 
   const owner = getUsername(localStorage.getItem('token'));
   const cricket = draft.gametype === 'Cricket';
+  const mikke = isMikkeMus(draft.gametype);
 
   async function handleStart(event) {
     event.preventDefault();
@@ -31,7 +38,11 @@ export default function GameSetupPage() {
     try {
       const game = await startDraftGame(
         {
-          gametype: cricket ? 'Cricket' : draft.finishes[finish],
+          gametype: mikke
+            ? variants[variant]
+            : cricket
+              ? draft.gametype
+              : draft.finishes[finish],
           players: draft.players,
           guests: draft.guests ?? [],
           legsToWin: Number(legsToWin),
@@ -116,7 +127,7 @@ export default function GameSetupPage() {
           Choose 1 for a single leg, or 2–99 for a first-to-wins game. Starting
           player rotates each leg.
         </p>
-        {!cricket && (
+        {!cricket && !mikke && (
           <fieldset
             className="game-finish-picker"
             disabled={submitting || Boolean(pendingGame)}
@@ -136,13 +147,43 @@ export default function GameSetupPage() {
             ))}
           </fieldset>
         )}
+        {mikke && (
+          <fieldset
+            className="game-finish-picker"
+            disabled={submitting || Boolean(pendingGame)}
+          >
+            <legend>Mikke Mus mode</legend>
+            {Object.keys(variants).map((mode) => (
+              <label key={mode}>
+                <input
+                  type="radio"
+                  name="mikke-mode"
+                  value={mode}
+                  checked={variant === mode}
+                  onChange={() => setVariant(mode)}
+                />
+                {mode}
+              </label>
+            ))}
+          </fieldset>
+        )}
         <p className="player-hint">
-          {cricket
-            ? 'Close 15–20 and bull with three marks each. Score on closed targets while an opponent has them open. Close everything and have the highest score (ties count) to win.'
-            : finish === 'single'
-              ? 'Reach exactly zero with any dart.'
-              : 'Reach exactly zero with a double.'}
+          {mikke
+            ? variant === 'Forced'
+              ? 'Close 20 down to 14 in order. Doubles and trebles count for their category only on the required number until all numbers are closed. Bull unlocks after numbers, doubles and trebles are closed.'
+              : 'Close 20–14, doubles, trebles and bull with three marks each, in any order. Choose how to use each double or treble.'
+            : cricket
+              ? 'Close 15–20 and bull with three marks each. Score on closed targets while an opponent has them open. Close everything and have the highest score (ties count) to win.'
+              : finish === 'single'
+                ? 'Reach exactly zero with any dart.'
+                : 'Reach exactly zero with a double.'}
         </p>
+        {mikke && (
+          <p className="player-hint">
+            Players later in the finishing round get redemption if they can
+            finish in three darts. Tied finishers throw for bull; closest wins.
+          </p>
+        )}
         <p className="game-shared-hint">
           {pendingGame
             ? 'A pending game is waiting to start. Retry or cancel to remove it.'

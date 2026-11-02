@@ -4,18 +4,21 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import lux.dartgame.model.MatchStatus;
+import lux.dartgame.model.MikkeMusState;
 
 /** Full reloadable game state; gameId is the player-facing match identifier. */
 public record MatchResponse(long gameId, String owner, String gametype, int startingPoints,
                             MatchStatus status, Instant createdAt, Instant startedAt,
                             Instant finishedAt, String winner, String turn, long revision,
                             long currentLegId, String format, List<Player> players,
-                            List<LegSummary> legs, Permissions permissions, int legsToWin) {
+                            List<LegSummary> legs, Permissions permissions, int legsToWin,
+                            MikkeMusState mikkeMus) {
     public record Player(String username, int position, int points, int turns,
                          int bullseyes, int triple20s, int highestScore, int highestCheckout,
                             long legsWon, ScoringStats scoringStats, boolean guest,
                             Map<Integer, Integer> cricketMarks,
-                            Map<Integer, BoardHitResponse> boardHits) {
+                            Map<Integer, BoardHitResponse> boardHits,
+                            Map<String, Integer> mikkeMarks) {
     }
 
     public record ScoringStats(int dartsThrown, int firstNinePoints, int firstNineDarts,

@@ -146,17 +146,43 @@ export function deleteGame({ gameId }) {
   return request(`/api/games/${gameId}`, { method: 'DELETE' });
 }
 
-export const MAX_TOTAL_PLAYERS = 10;
+export const MAX_TOTAL_PLAYERS = 4;
 
 // A single authoritative response works equally during play and after a browser reload.
 export function getGameState({ gameId }) {
   return request(`/api/games/${gameId}`);
 }
 
-export function playRound({ gameId, username, score, legId, revision }) {
+export function playRound({
+  gameId,
+  username,
+  score,
+  legId,
+  revision,
+  allocations,
+}) {
   return request(`/api/games/${gameId}/rounds`, {
     method: 'POST',
-    body: { username, score, legId, revision },
+    body: {
+      username,
+      score,
+      legId,
+      revision,
+      ...(allocations ? { allocations } : {}),
+    },
+  });
+}
+
+export function resolveBullOff({
+  gameId,
+  legId,
+  revision,
+  winner,
+  rethrow = false,
+}) {
+  return request(`/api/games/${gameId}/bull-off`, {
+    method: 'POST',
+    body: { legId, revision, winner, rethrow },
   });
 }
 

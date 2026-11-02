@@ -21,7 +21,19 @@ export function playableModes(gametypes) {
   if (gametypes.some(({ gamemode }) => gamemode === 'Cricket')) {
     modes.push({ gamemode: 'Cricket', finishes: {} });
   }
+  const variants = {};
+  for (const variant of ['Forced', 'Relaxed']) {
+    const type = `Mikke Mus ${variant}`;
+    if (gametypes.some(({ gamemode }) => gamemode === type))
+      variants[variant] = type;
+  }
+  if (Object.keys(variants).length)
+    modes.push({ gamemode: 'Mikke Mus', finishes: {}, variants });
   return modes;
+}
+
+export function isMikkeMus(type) {
+  return ['Mikke Mus', 'Mikke Mus Forced', 'Mikke Mus Relaxed'].includes(type);
 }
 
 export function playerNameError(

@@ -18,12 +18,16 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "legs")
 @Getter
 @Setter
 public class Leg {
+    @JdbcTypeCode(SqlTypes.JSON)
+    private MikkeMusState mikkeState;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long legId;

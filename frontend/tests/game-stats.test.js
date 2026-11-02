@@ -533,7 +533,7 @@ test('game cards link directly to games and distinguish abandonment from a win',
   }
 });
 
-test('creation form automatically includes the owner in the ten-player limit', () => {
+test('creation form automatically includes the owner in the four-player limit', () => {
   const payload = Buffer.from(JSON.stringify({ sub: 'alice' })).toString(
     'base64url'
   );
@@ -543,7 +543,7 @@ test('creation form automatically includes the owner in the ten-player limit', (
   );
   assert.match(html, /Create game/);
   assert.match(html, /alice \(you\)/);
-  assert.match(html, /1 \/ 10/);
+  assert.match(html, /1 \/ 4/);
   assert.match(html, /Continue/);
   assert.match(html, /Player type/);
   assert.match(html, /Guest player/);

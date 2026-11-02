@@ -7,6 +7,7 @@ import lux.dartgame.dto.CreateGameRequest;
 import lux.dartgame.dto.MatchResponse;
 import lux.dartgame.dto.PlayedRoundRequest;
 import lux.dartgame.dto.UndoRoundRequest;
+import lux.dartgame.dto.BullOffDecisionRequest;
 import lux.dartgame.service.MatchService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -69,6 +70,13 @@ public class GameController {
                               final @RequestBody @Valid UndoRoundRequest request,
                               final Principal principal) {
         return matches.undo(id, request, principal.getName());
+    }
+
+    @PostMapping("{id}/bull-off")
+    public MatchResponse bullOff(final @PathVariable long id,
+                                 final @RequestBody @Valid BullOffDecisionRequest request,
+                                 final Principal principal) {
+        return matches.bullOffDecision(id, request, principal.getName());
     }
 
     @PostMapping("{id}/abandon")

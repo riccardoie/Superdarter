@@ -40,7 +40,8 @@ class MigrationIT extends AbstractIT {
                         + "CASE WHEN u.user_name='known' AND l.leg_number=1 THEN 6 ELSE 7 END "
                         + "FROM legs l JOIN matches m USING(match_id) JOIN users u ON u.user_id=m.owner_id");
                 var migration = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(),
-                        POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema).load();
+                        POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema)
+                        .target("15").load();
                 assertThat(migration.migrate().migrationsExecuted).isEqualTo(1);
                 assertThat(migration.migrate().migrationsExecuted).isZero();
                 try (var rows = sql.executeQuery("SELECT u.user_name,p.highest_leg_average,"
@@ -96,7 +97,7 @@ class MigrationIT extends AbstractIT {
                         + " FROM leg_player_stats s JOIN legs l USING(leg_id)");
                 var migration = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(),
                         POSTGRES.getUsername(), POSTGRES.getPassword()).defaultSchema(schema).load();
-                assertThat(migration.migrate().migrationsExecuted).isEqualTo(4);
+                assertThat(migration.migrate().migrationsExecuted).isEqualTo(5);
                 assertThat(migration.migrate().migrationsExecuted).isZero();
                 try (var rows = sql.executeQuery("SELECT cricket15,cricket25 FROM played_rounds")) {
                     assertThat(rows.next()).isTrue();

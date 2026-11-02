@@ -39,14 +39,15 @@ public class MatchStatisticsService {
                 entities.refresh(total);
             }
             total.setPlayedLegs(total.getPlayedLegs() + 1);
-            boolean cricket = cricket(stat);
-            if (!cricket) {
+            boolean marksGame = marksGame(stat);
+            if (!marksGame) {
                 long countdownLegs = entities.createQuery("select count(s) from LegPlayerStat s "
                         + "where s.user.userId = :user and s.leg.status = "
                         + "lux.dartgame.model.MatchStatus.COMPLETED "
-                        + "and s.leg.match.gametype.gametype <> :cricket", Long.class)
+                        + "and s.leg.match.gametype.gametype in "
+                        + "('301','501','301 Single Out','501 Single Out')", Long.class)
                         .setParameter("user", user.getUserId())
-                        .setParameter("cricket", Constants.GAMETYPE_CRICKET).getSingleResult();
+                        .getSingleResult();
                 float average = stat.getTurn() == 0 ? 0f
                         : (float) (startingPoints - stat.getPoints()) / stat.getTurn();
                 total.setAvgPoints((total.getAvgPoints() * (countdownLegs - 1) + average)
@@ -63,7 +64,7 @@ public class MatchStatisticsService {
             }
             total.setTriple20s(total.getTriple20s() + stat.getTriple20s());
             total.setBullseyes(total.getBullseyes() + stat.getBullseyes());
-            if (!cricket) {
+            if (!marksGame) {
                 total.setHighestScore(Math.max(total.getHighestScore(), stat.getHighestScore()));
                 total.setHighestCheckout(
                         Math.max(total.getHighestCheckout(), stat.getHighestCheckout()));
@@ -103,17 +104,17 @@ public class MatchStatisticsService {
             total.setPlayedMatches(matches.size());
             total.setWonMatches((int) matches.stream()
                     .filter(m -> won(m.getWinner(), user)).count());
-            total.setAvgPoints((float) completed.stream().filter(s -> !cricket(s))
+            total.setAvgPoints((float) completed.stream().filter(s -> !marksGame(s))
                     .mapToDouble(s -> s.getTurn() == 0 ? 0
                     : (double) (CountdownRules.startingPoints(
                             s.getLeg().getMatch().getGametype().getGametype())
                     - s.getPoints()) / s.getTurn()).average().orElse(0));
             total.setTriple20s(completed.stream().mapToInt(LegPlayerStat::getTriple20s).sum());
             total.setBullseyes(completed.stream().mapToInt(LegPlayerStat::getBullseyes).sum());
-            total.setHighestScore(completed.stream().filter(s -> !cricket(s))
+            total.setHighestScore(completed.stream().filter(s -> !marksGame(s))
                     .mapToInt(LegPlayerStat::getHighestScore)
                     .max().orElse(0));
-            total.setHighestCheckout(completed.stream().filter(s -> !cricket(s))
+            total.setHighestCheckout(completed.stream().filter(s -> !marksGame(s))
                     .mapToInt(LegPlayerStat::getHighestCheckout)
                     .max().orElse(0));
             var records = AverageRecords.calculate(completed);
@@ -127,8 +128,8 @@ public class MatchStatisticsService {
         return winner != null && winner.getUserId() == user.getUserId();
     }
 
-    private boolean cricket(final LegPlayerStat stat) {
-        return Constants.GAMETYPE_CRICKET.equals(
+    private boolean marksGame(final LegPlayerStat stat) {
+        return !Constants.isCountdown(
                 stat.getLeg().getMatch().getGametype().getGametype());
     }
 }
