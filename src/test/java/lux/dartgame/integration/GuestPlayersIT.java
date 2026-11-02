@@ -20,6 +20,23 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 
 class GuestPlayersIT extends AbstractIT {
+    @ParameterizedTest
+    @ValueSource(strings = {"301", "501", "301 Single Out", "501 Single Out",
+        "Cricket", "Mikke Mus Forced", "Mikke Mus Relaxed"})
+    void everyModeAllowsFourPlayersButRejectsFive(final String mode) {
+        String token = register("alice");
+        register("bob");
+        befriend("alice", "bob");
+        var rejected = rest().postForEntity(GAMES_URL, authed(token,
+                new CreateGameRequest(mode, List.of(new UserRequest("bob")), 1,
+                        List.of("Guest1", "Guest2", "Guest3"))), String.class);
+        assertThat(rejected.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(countRows("matches")).isZero();
+        MatchResponse allowed = create(token, new CreateGameRequest(mode,
+                List.of(new UserRequest("bob")), 1, List.of("Guest1", "Guest2")));
+        assertThat(allowed.players()).hasSize(4);
+    }
+
     @Test
     void drawnGuestStarterPersistsAcrossReloadUndoAndLegRotation() {
         when(starters.choose(3)).thenReturn(2, 1);
@@ -240,7 +257,7 @@ class GuestPlayersIT extends AbstractIT {
         String token = register("alice");
         for (List<String> guests : List.of(List.of(""), List.of("   "), List.of("alice"),
                 List.of("Sam", " Sam "), List.of("x".repeat(256)),
-                IntStream.range(0, 10).mapToObj(i -> "guest" + i).toList())) {
+                IntStream.range(0, 4).mapToObj(i -> "guest" + i).toList())) {
             var response = rest().postForEntity(GAMES_URL, authed(token,
                     new CreateGameRequest("301", List.of(), 1, guests)), String.class);
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -255,8 +272,8 @@ class GuestPlayersIT extends AbstractIT {
                 new CreateGameRequest("301", List.of(), 1, java.util.Arrays.asList((String) null))),
                 String.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         MatchResponse max = create(token, new CreateGameRequest("301", List.of(), 1,
-                IntStream.range(0, 9).mapToObj(i -> "guest" + i).toList()));
-        assertThat(max.players()).hasSize(10);
+                IntStream.range(0, 3).mapToObj(i -> "guest" + i).toList()));
+        assertThat(max.players()).hasSize(4);
         rest().exchange(GAMES_URL + "/" + max.gameId(), HttpMethod.DELETE, authed(token, null), Void.class);
         assertThat(countRows("match_participants")).isZero();
         assertThat(countRows("leg_player_stats")).isZero();

@@ -56,20 +56,23 @@ test('registered players and guests share unique names and one player limit', ()
     owner: 'alice',
     players: ['bob'],
     guests: ['Guest One'],
-    maxPlayers: 10,
+    maxPlayers: 4,
   };
   assert.equal(playerNameError('Guest Two', names), '');
   for (const name of ['', 'alice', 'bob', 'Guest One', 'x'.repeat(256)]) {
     assert.notEqual(playerNameError(name, names), '');
   }
   assert.match(
-    playerNameError('Guest Two', { ...names, maxPlayers: 3 }),
-    /Max 3 players/
+    playerNameError('Guest Three', {
+      ...names,
+      guests: ['Guest One', 'Guest Two'],
+    }),
+    /Max 4 players/
   );
 });
 
 test('registered opponents must be accepted friends, while guest validation stays independent', () => {
-  const names = { owner: 'alice', players: [], guests: [], maxPlayers: 10 };
+  const names = { owner: 'alice', players: [], guests: [], maxPlayers: 4 };
   assert.match(
     playerNameError('bob', { ...names, friends: [] }),
     /accepted friends/
@@ -93,7 +96,7 @@ test('friend suggestions filter case-insensitively and exclude selected players,
     owner: 'alice',
     players: ['bob'],
     guests: ['dave'],
-    maxPlayers: 10,
+    maxPlayers: 4,
   };
   assert.deepEqual(gameFriendSuggestions(friends, ' BO ', selection), [
     'Bobby',
@@ -104,7 +107,10 @@ test('friend suggestions filter case-insensitively and exclude selected players,
   ]);
   assert.deepEqual(gameFriendSuggestions(friends, 'unknown', selection), []);
   assert.deepEqual(
-    gameFriendSuggestions(friends, '', { ...selection, maxPlayers: 3 }),
+    gameFriendSuggestions(friends, '', {
+      ...selection,
+      guests: ['dave', 'carol'],
+    }),
     []
   );
 });

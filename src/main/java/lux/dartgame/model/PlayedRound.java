@@ -15,12 +15,16 @@ import lombok.Getter;
 import lombok.Setter;
 import java.util.HashMap;
 import java.util.Map;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "played_rounds")
 @Getter
 @Setter
 public class PlayedRound {
+    @JdbcTypeCode(SqlTypes.JSON)
+    private MikkeMusState beforeMikkeState;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long roundId;

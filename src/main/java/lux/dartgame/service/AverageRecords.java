@@ -11,7 +11,7 @@ public record AverageRecords(Float legAverage, Float gameAverage, Float firstNin
     public static AverageRecords calculate(final List<LegPlayerStat> history) {
         var legs = history.stream().filter(stat ->
                 stat.getLeg().getStatus() == MatchStatus.COMPLETED
-                && !Constants.GAMETYPE_CRICKET.equals(
+                && Constants.isCountdown(
                         stat.getLeg().getMatch().getGametype().getGametype())).toList();
         Float leg = legs.stream().filter(stat -> stat.getTurn() > 0)
                 .map(stat -> (float) scored(stat) / stat.getTurn())

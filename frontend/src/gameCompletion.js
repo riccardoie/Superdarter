@@ -1,9 +1,15 @@
 import { previewCheckout } from './checkout.js';
 import { isSingleOut } from './gameSetup.js';
 import { cricketRoundPreview } from './cricket.js';
+import { mikkeRoundPreview } from './mikkeAllocation.js';
 
 export function isMatchWinningRound(game, slots) {
   if (game.status !== 'IN_PROGRESS') return false;
+  if (game.mikkeMus)
+    return (
+      ['PLAY', 'REDEMPTION'].includes(game.mikkeMus.phase) &&
+      mikkeRoundPreview(game, slots).won
+    );
   const player = game.players.find((entry) => entry.username === game.turn);
   return Boolean(
     player &&
