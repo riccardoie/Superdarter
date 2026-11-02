@@ -21,6 +21,8 @@ import { isMatchWinningRound } from '../gameCompletion';
 import CricketScoreboard from '../components/CricketScoreboard';
 import { cricketRoundPreview } from '../cricket';
 import MikkeScoreboard from '../components/MikkeScoreboard';
+import AroundClockScoreboard from '../components/AroundClockScoreboard';
+import CountdownRemainingPreview from '../components/CountdownRemainingPreview';
 import MikkeRedemptionNotice from '../components/MikkeRedemptionNotice';
 import GameBoardHits from '../components/GameBoardHits';
 import MikkeBullOff from '../components/MikkeBullOff';
@@ -107,6 +109,8 @@ export default function GamePage() {
   const activePlayer = game.turn;
   const cricket = game.gametype === 'Cricket';
   const mikke = Boolean(game.mikkeMus);
+  const clock = Boolean(game.aroundClock);
+  const targetState = game.aroundClock ?? game.mikkeMus;
   const slots = mikke
     ? resolveMikkeAllocations(game, enteredSlots)
     : enteredSlots;
@@ -198,7 +202,7 @@ export default function GamePage() {
       setGame(await undoRound({ gameId, revision: game.revision }));
       setSlots(emptySlots());
       setActiveDart(0);
-      setLegNotice('Previous round undone. Enter the corrected throws.');
+      setLegNotice('');
     } catch (err) {
       if (err.status === 403 || err.status === 409) {
         try {
@@ -432,12 +436,16 @@ export default function GamePage() {
         </p>
       )}
 
-      {mikke ? (
+      {targetState && (
+        <MikkeRedemptionNotice
+          key={`${game.currentLegId}-${targetState.phase}-${targetState.phase === 'BULL_OFF' ? targetState.bullAttempt : game.turn}`}
+          game={game}
+        />
+      )}
+      {clock ? (
+        <AroundClockScoreboard game={game} slots={slots} showStats={false} />
+      ) : mikke ? (
         <>
-          <MikkeRedemptionNotice
-            key={`${game.currentLegId}-${game.mikkeMus.phase}-${game.mikkeMus.phase === 'BULL_OFF' ? game.mikkeMus.bullAttempt : game.turn}`}
-            game={game}
-          />
           <MikkeScoreboard
             showStats={false}
             game={game}
@@ -466,7 +474,7 @@ export default function GamePage() {
                 : 'History saved. Completed legs count towards player totals; the unfinished leg does not.'}
             </p>
           </div>
-          {!cricket && !mikke && (
+          {!cricket && !mikke && !clock && (
             <div className="game-stats-section">
               <h2>
                 {game.legsToWin > 1 ? 'Match stats — all legs' : 'Game stats'}
@@ -503,8 +511,8 @@ export default function GamePage() {
             </button>
           )}
         </div>
-      ) : mikke &&
-        ['BULL_OFF', 'BULL_DECISION'].includes(game.mikkeMus.phase) ? (
+      ) : targetState &&
+        ['BULL_OFF', 'BULL_DECISION'].includes(targetState.phase) ? (
         <MikkeBullOff
           game={game}
           busy={submitting}
@@ -668,9 +676,15 @@ export default function GamePage() {
                 ))}
               </div>
             )}
-            {!mikke && (
-              <div className="game-round-total">
-                {cricket ? 'Round points' : 'Round total'}: {roundTotal}
+            {!mikke && !clock && (
+              <div className="game-round-summary">
+                <div className="game-round-total">
+                  <span>{cricket ? 'Round points' : 'Round total'}:</span>{' '}
+                  <span>{roundTotal}</span>
+                </div>
+                {!cricket && !submitting && (
+                  <CountdownRemainingPreview game={game} slots={slots} />
+                )}
               </div>
             )}
             <div className="game-round-actions">
@@ -698,7 +712,7 @@ export default function GamePage() {
           This game is in progress. Only participants can score.
         </p>
       )}
-      {mikke && (
+      {(mikke || clock) && (
         <GameBoardHits players={finished ? matchStats(game) : game.players} />
       )}
       <CompletedLegs game={game} />
@@ -724,13 +738,19 @@ export default function GamePage() {
       )}
       {confirmFinish && (
         <ConfirmDialog
-          title={mikke ? 'Has the player finished?' : 'Was the game completed?'}
+          title={
+            mikke || clock
+              ? 'Has the player finished?'
+              : 'Was the game completed?'
+          }
           body={
-            mikke
+            mikke || clock
               ? `These throws close all targets for ${activePlayer}. Confirm the finish, or go back to correct the throws. Eligible players still get redemption; tied finishers throw for bull.`
               : `These throws give ${activePlayer} the match win. Confirm the final round, or go back to correct the throws.`
           }
-          confirmLabel={mikke ? 'Yes, confirm finish' : 'Yes, finish game'}
+          confirmLabel={
+            mikke || clock ? 'Yes, confirm finish' : 'Yes, finish game'
+          }
           cancelLabel="No, correct throws"
           confirmClassName="btn btn-primary"
           busyLabel="Finishing…"

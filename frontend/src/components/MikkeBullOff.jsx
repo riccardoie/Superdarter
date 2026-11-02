@@ -5,7 +5,7 @@ export default function MikkeBullOff({
   onDecision,
   onUndo,
 }) {
-  const state = game.mikkeMus;
+  const state = game.aroundClock ?? game.mikkeMus;
   const name = (position) =>
     game.players.find((player) => player.position === position)?.username;
   const regions = ['Outside bull', 'Outer bull', 'Bullseye'];

@@ -10,7 +10,7 @@ import lux.dartgame.dto.PlayerStatResponse;
 import lux.dartgame.dto.UndoRoundRequest;
 import lux.dartgame.dto.UserRequest;
 import lux.dartgame.model.MatchStatus;
-import lux.dartgame.model.MikkeMusState;
+import lux.dartgame.model.TargetGameState;
 import lux.dartgame.service.MikkeMusRules;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -162,12 +162,12 @@ class MikkeMusIT extends AbstractIT {
         assertThat(get(token, game)).isEqualTo(game);
     }
 
-    private void close(final MikkeMusState state, final int position, final int bull) {
+    private void close(final TargetGameState state, final int position, final int bull) {
         state.getMarks().get(position).replaceAll((target, marks) -> 3);
         state.getMarks().get(position).put("B", bull);
     }
 
-    private void seed(final MatchResponse game, final MikkeMusState state) throws Exception {
+    private void seed(final MatchResponse game, final TargetGameState state) throws Exception {
         jdbc().update("UPDATE legs SET mikke_state=?::jsonb WHERE leg_id=?",
                 mapper.writeValueAsString(state), game.currentLegId());
     }

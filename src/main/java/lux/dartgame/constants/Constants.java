@@ -26,6 +26,7 @@ public final class Constants {
     public static final String GAMETYPE_CRICKET = "Cricket";
     public static final String GAMETYPE_MIKKE_FORCED = "Mikke Mus Forced";
     public static final String GAMETYPE_MIKKE_RELAXED = "Mikke Mus Relaxed";
+    public static final String GAMETYPE_AROUND_CLOCK = "Around the Clock";
 
     private static final int[] IMPOSSIBLE_SCORES =
             {163, 166, 169, 172, 173, 175, 176, 178, 179};

@@ -35,6 +35,7 @@ import lux.dartgame.model.MatchStatus;
 import lux.dartgame.model.PlayedRound;
 import lux.dartgame.model.RoundSnapshot;
 import lux.dartgame.model.User;
+import lux.dartgame.model.TargetGameState;
 import lux.dartgame.repository.GametypeRepository;
 import lux.dartgame.repository.MatchRepository;
 import lux.dartgame.repository.UserRepository;
@@ -206,7 +207,11 @@ public class MatchService {
             var result = MikkeMusRules.play(leg.getMikkeState(), request.score(),
                     request.allocations(), Constants.GAMETYPE_MIKKE_FORCED.equals(
                             match.getGametype().getGametype()));
-            return applyMikke(match, leg, stat, result, actor);
+            return applyTargetGame(match, leg, stat, result, actor);
+        }
+        if (leg.getClockState() != null) {
+            return applyTargetGame(match, leg, stat,
+                    AroundClockRules.play(leg.getClockState(), request.score()), actor);
         }
         boolean cricket = Constants.GAMETYPE_CRICKET.equals(match.getGametype().getGametype());
         CricketRules.Result cricketResult = cricket ? CricketRules.evaluate(cricketPlayer(stat),
@@ -280,6 +285,8 @@ public class MatchService {
         stat.setCricketMarks(CricketMarks.from(round.getBeforeRound().getCricketMarks().asMap()));
         leg.setMikkeState(round.getBeforeMikkeState() == null ? null
                 : round.getBeforeMikkeState().copy());
+        leg.setClockState(round.getBeforeClockState() == null ? null
+                : round.getBeforeClockState().copy());
         advanceRevision(match);
         matches.saveAndFlush(match);
         if (completed) {
@@ -349,7 +356,7 @@ public class MatchService {
         Match match = locked(id);
         requireParticipant(match, actor);
         Leg leg = currentLeg(match);
-        if (match.getStatus() != MatchStatus.IN_PROGRESS || leg.getMikkeState() == null
+        if (match.getStatus() != MatchStatus.IN_PROGRESS || targetState(leg) == null
                 || request.revision() != match.getRevision() || request.legId() != leg.getLegId()) {
             throw new GameConflictException(
                     "Game state changed. Reload before resolving the bull-off");
@@ -360,24 +367,37 @@ public class MatchService {
         LegPlayerStat player = request.rethrow() ? leg.getPlayerStats().getFirst()
                 : leg.getPlayerStats().stream().filter(s -> playerName(s).equals(request.winner()))
                         .findFirst().orElseThrow(InvalidTurnException::new);
-        var result = MikkeMusRules.decide(leg.getMikkeState(),
+        var result = EqualRoundRules.decide(targetState(leg),
                 request.rethrow() ? null : player.getPosition());
-        return applyMikke(match, leg, player, result, actor);
+        return applyTargetGame(match, leg, player, result, actor);
     }
 
-    private MatchResponse applyMikke(final Match match, final Leg leg, final LegPlayerStat player,
-                                     final MikkeMusRules.Result result, final String actor) {
+    private MatchResponse applyTargetGame(final Match match, final Leg leg,
+                                          final LegPlayerStat player,
+                                          final TargetGameResult result, final String actor) {
         PlayedRound round = new PlayedRound();
         round.setMatch(match);
         round.setPlayerStat(player);
-        round.setBeforeMikkeState(leg.getMikkeState().copy());
+        if (leg.getMikkeState() != null) {
+            round.setBeforeMikkeState(leg.getMikkeState().copy());
+        } else {
+            round.setBeforeClockState(leg.getClockState().copy());
+        }
         RoundSnapshot snapshot = new RoundSnapshot();
         BeanUtils.copyProperties(player, snapshot);
         snapshot.setCricketMarks(CricketMarks.from(player.getCricketMarks().asMap()));
         round.setBeforeRound(snapshot);
         round.getBoardHits().putAll(result.hits());
         match.getRounds().add(round);
-        leg.setMikkeState(result.state());
+        if (leg.getMikkeState() != null) {
+            leg.setMikkeState(result.state());
+        } else {
+            leg.setClockState(result.state());
+            for (var stat : leg.getPlayerStats()) {
+                stat.setPoints(result.state().getMarks().get(stat.getPosition())
+                        .get(AroundClockRules.NEXT));
+            }
+        }
         if (result.dartsThrown() > 0) {
             player.setTurn(player.getTurn() + 1);
             player.setDartsThrown(player.getDartsThrown() + result.dartsThrown());
@@ -427,6 +447,8 @@ public class MatchService {
         }
         if (MikkeMusRules.supports(match.getGametype().getGametype())) {
             leg.setMikkeState(MikkeMusRules.initial(participants.size()));
+        } else if (Constants.GAMETYPE_AROUND_CLOCK.equals(match.getGametype().getGametype())) {
+            leg.setClockState(AroundClockRules.initial(participants.size()));
         }
         match.getLegs().add(leg);
     }
@@ -440,14 +462,18 @@ public class MatchService {
     }
 
     private LegPlayerStat next(final Leg leg) {
-        if (leg.getMikkeState() != null) {
+        if (targetState(leg) != null) {
             return leg.getPlayerStats().stream()
-                    .filter(s -> s.getPosition() == leg.getMikkeState().getCurrentPosition())
+                    .filter(s -> s.getPosition() == targetState(leg).getCurrentPosition())
                     .findFirst().orElseThrow(() -> new GameConflictException(
                             "Resolve the bull-off distance decision first"));
         }
         return leg.getPlayerStats().stream().min(Comparator.comparingInt(LegPlayerStat::getTurn)
                 .thenComparingInt(LegPlayerStat::getPosition)).orElseThrow();
+    }
+
+    private TargetGameState targetState(final Leg leg) {
+        return leg.getClockState() == null ? leg.getMikkeState() : leg.getClockState();
     }
 
     private void advanceRevision(final Match match) {
@@ -506,8 +532,8 @@ public class MatchService {
                 startingPoints(match.getGametype().getGametype()), match.getStatus(),
                 match.getCreatedAt(), match.getStartedAt(), match.getFinishedAt(),
                 winnerName(match.getWinner(), match.getWinnerGuestName()),
-                (pending || playing) && (leg.getMikkeState() == null
-                        || leg.getMikkeState().getCurrentPosition() >= 0)
+                (pending || playing) && (targetState(leg) == null
+                        || targetState(leg).getCurrentPosition() >= 0)
                         ? playerName(next(leg)) : null,
                 match.getRevision(), leg.getLegId(),
                 match.getLegsToWin() == 1 ? "SINGLE_LEG" : "FIRST_TO_LEGS", players, legs,
@@ -518,7 +544,8 @@ public class MatchService {
                         member && (match.getStatus() == MatchStatus.COMPLETED
                                 || match.getStatus() == MatchStatus.ABANDONED)),
                 match.getLegsToWin(),
-                leg.getMikkeState() == null ? null : leg.getMikkeState().copy());
+                leg.getMikkeState() == null ? null : leg.getMikkeState().copy(),
+                leg.getClockState() == null ? null : leg.getClockState().copy());
     }
 
     private List<MatchResponse.Player> players(final Match match, final Leg leg,

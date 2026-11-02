@@ -27,6 +27,7 @@ export default function GameSetupPage() {
 
   const owner = getUsername(localStorage.getItem('token'));
   const cricket = draft.gametype === 'Cricket';
+  const clock = draft.gametype === 'Around the Clock';
   const mikke = isMikkeMus(draft.gametype);
 
   async function handleStart(event) {
@@ -40,7 +41,7 @@ export default function GameSetupPage() {
         {
           gametype: mikke
             ? variants[variant]
-            : cricket
+            : cricket || clock
               ? draft.gametype
               : draft.finishes[finish],
           players: draft.players,
@@ -127,7 +128,7 @@ export default function GameSetupPage() {
           Choose 1 for a single leg, or 2–99 for a first-to-wins game. Starting
           player rotates each leg.
         </p>
-        {!cricket && !mikke && (
+        {!cricket && !mikke && !clock && (
           <fieldset
             className="game-finish-picker"
             disabled={submitting || Boolean(pendingGame)}
@@ -172,13 +173,15 @@ export default function GameSetupPage() {
             ? variant === 'Forced'
               ? 'Close 20 down to 14 in order. Doubles and trebles count for their category only on the required number until all numbers are closed. Bull unlocks after numbers, doubles and trebles are closed.'
               : 'Close 20–14, doubles, trebles and bull with three marks each, in any order. Choose how to use each double or treble.'
-            : cricket
-              ? 'Close 15–20 and bull with three marks each. Score on closed targets while an opponent has them open. Close everything and have the highest score (ties count) to win.'
-              : finish === 'single'
-                ? 'Reach exactly zero with any dart.'
-                : 'Reach exactly zero with a double.'}
+            : clock
+              ? 'Hit 1–20 in order, then finish on outer bull or bullseye. Singles advance one number, doubles two and trebles three; you must always finish with a separate bull dart.'
+              : cricket
+                ? 'Close 15–20 and bull with three marks each. Score on closed targets while an opponent has them open. Close everything and have the highest score (ties count) to win.'
+                : finish === 'single'
+                  ? 'Reach exactly zero with any dart.'
+                  : 'Reach exactly zero with a double.'}
         </p>
-        {mikke && (
+        {(mikke || clock) && (
           <p className="player-hint">
             Players later in the finishing round get redemption if they can
             finish in three darts. Tied finishers throw for bull; closest wins.

@@ -18,6 +18,7 @@ public final class CountdownRules {
             case Constants.GAMETYPE_501, Constants.GAMETYPE_501_SINGLE_OUT -> Constants.TARGET_501;
             case Constants.GAMETYPE_CRICKET -> 0;
             case Constants.GAMETYPE_MIKKE_FORCED, Constants.GAMETYPE_MIKKE_RELAXED -> 0;
+            case Constants.GAMETYPE_AROUND_CLOCK -> 1;
             default -> throw new GameModeNotFoundException(gametype);
         };
     }
